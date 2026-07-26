@@ -92,9 +92,17 @@ async function main() {
 	}
 
 	const exeSuffix = process.platform === "win32" ? ".exe" : "";
-	const targets = ["ffmpeg", "ffprobe"].map((name) => ({
-		name,
-		dest: `${BIN_DIR}${name}-${source.triple}${exeSuffix}`,
+	// Namespaced on purpose. Tauri installs Linux sidecars into /usr/bin under their
+	// plain name, so shipping one called `ffmpeg` makes our .deb/.rpm collide with the
+	// distro's own ffmpeg package — dpkg refuses the install outright ("trying to
+	// overwrite '/usr/bin/ffmpeg', which is also in package ffmpeg"). `name` is what we
+	// fetch from the archive; `binary` is what we ship as.
+	const targets = [
+		{ name: "ffmpeg", binary: "anthers-ffmpeg" },
+		{ name: "ffprobe", binary: "anthers-ffprobe" },
+	].map((t) => ({
+		...t,
+		dest: `${BIN_DIR}${t.binary}-${source.triple}${exeSuffix}`,
 	}));
 
 	if ((await Promise.all(targets.map((t) => exists(t.dest)))).every(Boolean)) {

@@ -62,24 +62,67 @@ protected is a lie.
 
 ## Packaging
 
-Per-platform builds **must run on their own OS** — there is no cross-compilation here.
+Per-platform builds **must run on their own OS** — there is no cross-compilation, and
+each platform's target refuses politely rather than failing deep in a toolchain.
 Distribution is GitHub Releases; no app stores.
 
 ```
 make desktop-build     # installers for whatever platform you're on
 ```
 
-Output lands in `apps/studio-desktop/src-tauri/target/release/bundle/`.
+Output lands in `src-tauri/target/release/bundle/`.
 
-| Platform | Artifacts |
-|---|---|
-| Linux | `.deb`, `.rpm`, `.AppImage` |
-| Windows | `.msi`, `.exe` (NSIS) |
-| macOS | `.app`, `.dmg` |
+| Platform | Artifacts | Notes |
+|---|---|---|
+| Linux | `.deb`, `.rpm`, `.AppImage` | no signing |
+| Windows | `.msi`, `.exe` (NSIS) | unsigned; SmartScreen will warn until we buy a cert |
+| macOS | `.app`, `.dmg` | signed + notarized, see below |
 
-macOS signing + notarization follow the `~/Lily` pattern (Apple credentials in `.env`,
-`notarytool submit` → `stapler staple` → Gatekeeper check). Not wired up yet — see the
-Studio Phase 5 task.
+### Cutting a release
+
+```
+make desktop-version V=0.2.0     # sync Cargo.toml + tauri.conf.json + package.json
+# on each machine:
+make desktop-build               # (+ make desktop-notarize on the Mac)
+# from any machine holding the collected bundles:
+make desktop-release V=0.2.0     # creates a DRAFT release and uploads them
+```
+
+`desktop-release` creates the release as a **draft** — review the artifact list before
+publishing (`gh release view studio-v0.2.0 --web`). Tag names are `studio-vX.Y.Z`, kept
+distinct from any web-app tagging.
+
+Keep the three version fields in lockstep: the DMG filename, and therefore the notarize
+step that looks for it, is derived from `Cargo.toml`.
+
+### macOS signing + notarization
+
+Credentials live in a gitignored `.env` (see `.env.example`): `APPLE_SIGNING_IDENTITY`,
+`APPLE_ID`, `APPLE_PASSWORD` (an **app-specific** password), `APPLE_TEAM_ID`.
+
+```
+make desktop-build-macos   # build, then re-sign, then rebuild the DMG
+make desktop-notarize      # notarytool submit --wait → stapler staple → spctl
+```
+
+Two things in that flow are non-obvious, both learned from `~/Lily`:
+
+1. **Tauri's bundler signs without `--timestamp`, and notarization rejects that.** So
+   the build re-signs afterwards, then rebuilds the DMG *from the re-signed `.app`* —
+   signing the old DMG would just seal the bad signature inside.
+2. **`APPLE_ID` / `APPLE_PASSWORD` / `APPLE_TEAM_ID` are unset while the bundler runs.**
+   Left set, Tauri notarizes inline — wasting a round trip to Apple on a binary that is
+   about to be replaced by the re-sign.
+
+Anthers Studio adds one wrinkle Lily doesn't have: the **ffmpeg sidecars are separate
+executables inside the bundle**, so the re-sign walks everything in `Contents/MacOS/`
+rather than just the main binary, and signs the `.app` last — a bundle signature seals
+whatever it contains at that moment.
+
+`entitlements.plist` is deliberately minimal: network client (the API) plus JIT and
+unsigned-executable-memory (WKWebView JITs JavaScript, and the hardened runtime would
+otherwise take the whole webview down). Library validation is intentionally left ON —
+the ffmpeg sidecars are static and load no external dylibs.
 
 ## Layout
 
@@ -94,12 +137,28 @@ src-tauri/
 The frontend is not here: `frontendDist` points at `../../studio-web/dist`, and
 `beforeBuildCommand` builds it.
 
+> [!warning] Those two paths are relative to *different* directories
+> `frontendDist` resolves from `src-tauri/` (so `../../studio-web/dist`), while
+> `beforeBuildCommand` / `beforeDevCommand` run from the **app** dir (so
+> `../studio-web`). Writing both with the same number of `../` looks right and fails
+> only when a real `tauri build` runs — `cargo build` and launching the binary directly
+> never invoke the before-commands, so it can sit broken for a long time.
+
 ## Native encoding
 
 `make desktop-dev` / `desktop-build` fetch static **ffmpeg + ffprobe** into
 `src-tauri/binaries/` (gitignored, ~153 MB for the pair on Linux) and Tauri bundles
 them as sidecars. `sidecar/fetch-ffmpeg.ts` is idempotent, so only the first build pays
 for the download.
+
+> [!warning] The sidecars are named `anthers-ffmpeg` / `anthers-ffprobe`, not `ffmpeg`
+> Tauri installs Linux sidecars into **`/usr/bin` under their plain name**. Shipping one
+> called `ffmpeg` makes the `.deb`/`.rpm` collide with the distro's own ffmpeg package,
+> and dpkg refuses the install outright: *"trying to overwrite '/usr/bin/ffmpeg', which
+> is also in package ffmpeg"*. Anyone who already has ffmpeg — a good chunk of the
+> creators this app is for — simply couldn't install it. The namespaced names are the
+> fix; keep them in sync across `fetch-ffmpeg.ts`, `externalBin`, and the
+> `.sidecar("…")` lookups in `encode.rs`.
 
 Encoding produces the **same ladder as the browser encoder** — same rungs, bitrates,
 6-second keyframe interval and x264 settings — because the server's `package-video` job

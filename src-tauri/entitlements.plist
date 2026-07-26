@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+	Hardened-runtime entitlements for the notarized macOS build. Each of these is here
+	for a reason; do not add more to make an error go away without recording why.
+
+	- network.client       — the Studio talks to the Anthers API. Without it every
+	                         request fails once the hardened runtime is on.
+	- allow-jit +
+	  allow-unsigned-
+	  executable-memory    — WKWebView JITs JavaScript. The hardened runtime blocks
+	                         writable-executable memory by default, which takes the
+	                         webview (i.e. the entire app) down with it.
+
+	NOT included, deliberately:
+	- disable-library-validation — the ffmpeg sidecars are STATIC binaries that load
+	  no external dylibs, so they sign and run fine under library validation. If a
+	  future sidecar links shared libraries this is where that would have to change,
+	  and it should be a conscious decision rather than a copied-in default.
+-->
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<true/>
+</dict>
+</plist>

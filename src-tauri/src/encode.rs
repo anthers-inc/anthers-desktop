@@ -93,7 +93,7 @@ struct ProbeOutput {
 pub async fn probe(app: &AppHandle, source: &Path) -> Result<(f64, u32, u32), String> {
 	let output = app
 		.shell()
-		.sidecar("ffprobe")
+		.sidecar("anthers-ffprobe")
 		.map_err(|e| format!("ffprobe sidecar missing: {e}"))?
 		.args([
 			"-v",
@@ -178,7 +178,7 @@ async fn encode_variant(
 
 	let (mut rx, _child) = app
 		.shell()
-		.sidecar("ffmpeg")
+		.sidecar("anthers-ffmpeg")
 		.map_err(|e| format!("ffmpeg sidecar missing: {e}"))?
 		.args([
 			"-hide_banner",
@@ -267,7 +267,7 @@ async fn encode_variant(
 async fn extract_poster(app: &AppHandle, source: &Path, at: f64, out: &Path) -> Option<String> {
 	let result = app
 		.shell()
-		.sidecar("ffmpeg")
+		.sidecar("anthers-ffmpeg")
 		.ok()?
 		.args([
 			"-hide_banner",
