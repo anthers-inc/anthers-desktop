@@ -1,0 +1,14 @@
+{
+	"name": "studio-desktop",
+	"private": true,
+	"version": "0.1.0",
+	"license": "AGPL-3.0-or-later",
+	"description": "Anthers Studio — Tauri desktop shell around the Studio app",
+	"type": "module",
+	"comment": "Scripts are deliberately NOT named dev/build/typecheck: the root runs those across every workspace with `--filter '*'`, which would launch the desktop window during `make dev` and force a full Rust build on every web build. Drive them via `make desktop-dev` / `make desktop-build`.",
+	"scripts": {
+		"tauri": "bunx tauri",
+		"tauri:dev": "bunx tauri dev",
+		"tauri:build": "bunx tauri build"
+	}
+}

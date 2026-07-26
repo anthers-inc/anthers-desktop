@@ -1,0 +1,32 @@
+[package]
+name = "anthers-studio"
+version = "0.1.0"
+edition = "2021"
+description = "Anthers Studio — desktop Creator Studio"
+authors = ["Parker H. Davis, LLC"]
+license = "AGPL-3.0-or-later"
+
+[build-dependencies]
+tauri-build = { version = "^2.0.0", features = [] }
+
+[dependencies]
+tauri = { version = "^2.0.0", features = [] }
+# The API transport. Fetching from Rust rather than the webview means CORS never
+# applies and the session token need not be readable from JS.
+tauri-plugin-http = "^2.0.0"
+# Delivers the `anthers://auth/callback?code=…` handoff back from the system browser.
+tauri-plugin-deep-link = "^2.0.0"
+# Opens the authorize page in the SYSTEM browser — the whole point of the handoff is
+# that sign-in does NOT happen inside this window.
+tauri-plugin-opener = "^2.0.0"
+# A second launch (including an OS deep-link activation) must reach the running
+# window rather than starting a rival instance that would miss the callback.
+tauri-plugin-single-instance = "^2.0.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+# PKCE: a random verifier and its SHA-256 challenge.
+getrandom = "0.2"
+sha2 = "0.10"
+# Token at rest in the OS keychain (Secret Service / Keychain / Credential Manager)
+# rather than a plaintext file. See the note in main.rs.
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
