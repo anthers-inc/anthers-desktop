@@ -94,9 +94,37 @@ src-tauri/
 The frontend is not here: `frontendDist` points at `../../studio-web/dist`, and
 `beforeBuildCommand` builds it.
 
+## Native encoding
+
+`make desktop-dev` / `desktop-build` fetch static **ffmpeg + ffprobe** into
+`src-tauri/binaries/` (gitignored, ~153 MB for the pair on Linux) and Tauri bundles
+them as sidecars. `sidecar/fetch-ffmpeg.ts` is idempotent, so only the first build pays
+for the download.
+
+Encoding produces the **same ladder as the browser encoder** — same rungs, bitrates,
+6-second keyframe interval and x264 settings — because the server's `package-video` job
+remuxes the variants into HLS with `-c copy`. If the two encoders drift, the same source
+yields differently-segmented ladders depending on where it was encoded, so the args live
+in one visible block in `src/encode.rs` rather than being assembled cleverly.
+
+What the native path removes, relative to the browser: `ffmpeg.wasm` is single-threaded
+per rung and capped at a 300 MB source, and the creator is tied to the tab for the whole
+encode. Native x264 threads across every core (~900% CPU observed), reads from disk, and
+the app is a window you can leave alone.
+
+The source is picked by **native dialog**, not `<input type=file>` — a webview `File` has
+no path, and the path is the point: ffmpeg reads the source straight off disk, so a
+multi-gigabyte file is never held in memory during the encode. The *upload* still reads
+bytes into memory, same as the browser path; that ceiling is now the upload, not the
+encode, and lifting it means moving the upload into Rust.
+
 ## Licensing note
 
 Anthers is AGPL-3.0-or-later and `bundle.licenseFile` points at the repo `LICENSE.md`.
-When the ffmpeg sidecar lands it brings its own licensing obligation — record the build
-flavour (LGPL vs GPL) and its notice in `packages/brand`'s third-party docs alongside
-the existing asset attributions.
+
+The bundled ffmpeg builds are **GPL**, because H.264 encoding needs libx264 and that is
+what makes a build GPL rather than LGPL. AGPL-3.0-or-later is GPL-compatible, and ffmpeg
+ships here as a **separate executable invoked as a subprocess**, not linked into our
+binary. The obligation is to pass the licence along and say where the corresponding
+source is — see `sidecar/THIRD-PARTY.md`. Swapping to an LGPL build to avoid that would
+also drop libx264, and with it the feature.

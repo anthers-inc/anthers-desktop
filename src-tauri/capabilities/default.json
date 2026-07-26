@@ -1,7 +1,16 @@
 {
 	"$schema": "../gen/schemas/desktop-schema.json",
 	"identifier": "default",
-	"description": "Base capability for the Anthers Studio window: core IPC (the sign-in commands), event listening (the shell emits `desktop-auth-code` when the browser handoff returns), and opening the authorize page in the SYSTEM browser. The http plugin is used from Rust only — the webview gets no direct HTTP scope.",
+	"description": "Base capability for the Anthers Studio window: core IPC (sign-in and encode commands), event listening (the shell emits `desktop-auth-code` and `encode-progress`), opening the authorize page in the SYSTEM browser, and picking a video to encode. Filesystem scope is deliberately narrow — the webview may read back the encoder's own temp output, and nothing else. ffmpeg itself is spawned from Rust, so the webview gets no shell scope at all.",
 	"windows": ["main"],
-	"permissions": ["core:default", "core:event:default", "opener:default"]
+	"permissions": [
+		"core:default",
+		"core:event:default",
+		"opener:default",
+		"dialog:allow-open",
+		{
+			"identifier": "fs:allow-read-file",
+			"allow": [{ "path": "$TEMP/anthers-encode-*/*" }]
+		}
+	]
 }

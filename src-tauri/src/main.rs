@@ -33,6 +33,7 @@
 //! `apiFetch()` in `@anthers/web-shared` already reads. `fetch` is routed through
 //! `tauri-plugin-http`, so requests leave from Rust and CORS never applies.
 
+mod encode;
 mod token;
 
 use std::sync::Mutex;
@@ -271,6 +272,32 @@ fn sign_out(store: tauri::State<'_, TokenStore>) {
 	store.clear();
 }
 
+// ─── Native encoding ─────────────────────────────────────────────────────────
+
+/// Encode a video into the variant ladder with the bundled ffmpeg. Runs on a blocking
+/// task: a long encode must not stall the IPC runtime that carries its own progress
+/// events.
+#[tauri::command]
+async fn encode_video(app: AppHandle, path: String) -> Result<encode::EncodeResult, String> {
+	encode::encode_ladder(app, path).await
+}
+
+/// Delete a finished encode's temp directory. Called after the variants are uploaded;
+/// failure is not worth surfacing, since the OS reclaims the temp dir anyway.
+#[tauri::command]
+fn cleanup_encode(work_dir: String) {
+	// Refuse anything that isn't one of our own encode folders — this deletes a tree,
+	// and a bad path from a compromised webview should not be able to aim it.
+	let path = std::path::PathBuf::from(&work_dir);
+	let is_ours = path
+		.file_name()
+		.and_then(|n| n.to_str())
+		.is_some_and(|n| n.starts_with("anthers-encode-"));
+	if is_ours && path.starts_with(std::env::temp_dir()) {
+		let _ = std::fs::remove_dir_all(path);
+	}
+}
+
 // ─── Entry ───────────────────────────────────────────────────────────────────
 
 /// Script evaluated before any app JS, defining the seam `@anthers/web-shared`'s
@@ -320,6 +347,12 @@ fn main() {
 			handle_urls(app, &argv);
 		}))
 		.plugin(tauri_plugin_http::init())
+		// Spawns the bundled ffmpeg/ffprobe sidecars.
+		.plugin(tauri_plugin_shell::init())
+		// Lets the webview read finished variants back for upload, and pick a source
+		// file by real path (no 300 MB in-memory ceiling).
+		.plugin(tauri_plugin_fs::init())
+		.plugin(tauri_plugin_dialog::init())
 		.plugin(tauri_plugin_opener::init())
 		.plugin(tauri_plugin_deep_link::init())
 		.manage(store)
@@ -356,7 +389,9 @@ fn main() {
 			begin_sign_in,
 			complete_sign_in,
 			take_pending_code,
-			sign_out
+			sign_out,
+			encode_video,
+			cleanup_encode
 		])
 		.run(tauri::generate_context!())
 		.expect("error while running Anthers Studio");

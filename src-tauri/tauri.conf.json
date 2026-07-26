@@ -4,10 +4,10 @@
 	"version": "0.1.0",
 	"identifier": "org.anthers.studio",
 	"build": {
-		"beforeDevCommand": "cd ../../studio-web && bun run build",
+		"beforeDevCommand": "bun run sidecar/fetch-ffmpeg.ts && cd ../../studio-web && bun run build",
 		"devUrl": "http://localhost:3001",
 		"frontendDist": "../../studio-web/dist",
-		"beforeBuildCommand": "cd ../../studio-web && bun run build"
+		"beforeBuildCommand": "bun run sidecar/fetch-ffmpeg.ts && cd ../../studio-web && bun run build"
 	},
 	"app": {
 		"windows": [
@@ -38,7 +38,7 @@
 		"publisher": "Parker H. Davis, LLC",
 		"copyright": "Copyright (c) 2026 Parker H. Davis, LLC",
 		"category": "DeveloperTool",
-		"shortDescription": "Anthers Studio — creator authoring for Anthers",
+		"shortDescription": "Anthers Studio \u2014 creator authoring for Anthers",
 		"longDescription": "The desktop Creator Studio for Anthers: draft posts, manage your content library, and encode video on your own machine with native ffmpeg instead of tying up a browser tab.",
 		"licenseFile": "../../../LICENSE.md",
 		"linux": {
@@ -52,6 +52,7 @@
 			"../../../packages/brand/icons/128x128@2x.png",
 			"../../../packages/brand/icons/icon.icns",
 			"../../../packages/brand/icons/icon.ico"
-		]
+		],
+		"externalBin": ["binaries/ffmpeg", "binaries/ffprobe"]
 	}
 }

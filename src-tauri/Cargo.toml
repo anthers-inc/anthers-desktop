@@ -22,6 +22,12 @@ tauri-plugin-opener = "^2.0.0"
 # A second launch (including an OS deep-link activation) must reach the running
 # window rather than starting a rival instance that would miss the callback.
 tauri-plugin-single-instance = "^2.0.0"
+# Spawns the bundled ffmpeg/ffprobe sidecars.
+tauri-plugin-shell = "^2.0.0"
+# Lets the webview read finished variants back for upload.
+tauri-plugin-fs = "^2.0.0"
+# Native file picker — gives a real PATH, so a large source is never held in memory.
+tauri-plugin-dialog = "^2.0.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 # PKCE: a random verifier and its SHA-256 challenge.
