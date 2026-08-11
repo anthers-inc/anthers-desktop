@@ -1,6 +1,6 @@
 # Anthers Studio (desktop)
 
-The Tauri shell around the Studio. It bundles the **same `apps/studio-web` build** the
+The Tauri shell around the Studio. It bundles the **same `apps/web` build** the site serves, opening it at `/studio` — the
 browser Studio serves — this is a third consumer of `@anthers/web-shared`, not a fork —
 and adds the two things a browser tab cannot do: a session that survives without
 cookies, and (next stage) native ffmpeg encoding that doesn't tie the creator to a tab
@@ -13,7 +13,7 @@ Architecture and the decisions behind it live in the wiki:
 
 ```
 make dev            # in one terminal — the API this build talks to
-make desktop-dev    # in another — builds studio-web, then opens the window
+make desktop-dev    # in another — builds apps/web, then opens the window
 ```
 
 Debug builds point at `http://localhost:8000`; release builds at `https://anthers.org`.
@@ -134,13 +134,13 @@ src-tauri/
   capabilities/    Webview permissions — deliberately minimal
 ```
 
-The frontend is not here: `frontendDist` points at `../../studio-web/dist`, and
+The frontend is not here: `frontendDist` points at `../../web/dist`, and
 `beforeBuildCommand` builds it.
 
 > [!warning] Those two paths are relative to *different* directories
-> `frontendDist` resolves from `src-tauri/` (so `../../studio-web/dist`), while
+> `frontendDist` resolves from `src-tauri/` (so `../../web/dist`), while
 > `beforeBuildCommand` / `beforeDevCommand` run from the **app** dir (so
-> `../studio-web`). Writing both with the same number of `../` looks right and fails
+> `../web`). Writing both with the same number of `../` looks right and fails
 > only when a real `tauri build` runs — `cargo build` and launching the binary directly
 > never invoke the before-commands, so it can sit broken for a long time.
 
