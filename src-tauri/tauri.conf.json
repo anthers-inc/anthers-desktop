@@ -1,8 +1,8 @@
 {
 	"$schema": "https://schema.tauri.app/config/2",
-	"productName": "Anthers Studio",
+	"productName": "Anthers",
 	"version": "0.1.0",
-	"identifier": "org.anthers.studio",
+	"identifier": "org.anthers.desktop",
 	"build": {
 		"beforeDevCommand": "bun run sidecar/fetch-ffmpeg.ts && cd ../web && bun run build",
 		"devUrl": "http://localhost:3000",
@@ -13,7 +13,7 @@
 		"windows": [
 			{
 				"label": "main",
-				"title": "Anthers Studio",
+				"title": "Anthers",
 				"width": 1600,
 				"height": 1000,
 				"minWidth": 1000,
@@ -38,7 +38,7 @@
 		"publisher": "Parker H. Davis, LLC",
 		"copyright": "Copyright (c) 2026 Parker H. Davis, LLC",
 		"category": "DeveloperTool",
-		"shortDescription": "Anthers Studio \u2014 creator authoring for Anthers",
+		"shortDescription": "Anthers \u2014 the creative garden, on your desktop",
 		"longDescription": "The desktop Creator Studio for Anthers: draft posts, manage your content library, and encode video on your own machine with native ffmpeg instead of tying up a browser tab.",
 		"licenseFile": "../../../LICENSE.md",
 		"linux": {

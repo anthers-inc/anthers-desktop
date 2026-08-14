@@ -15,7 +15,7 @@
 
 use std::sync::Mutex;
 
-const SERVICE: &str = "org.anthers.studio";
+const SERVICE: &str = "org.anthers.desktop";
 const ACCOUNT: &str = "session";
 
 /// Whether the token survives a restart, so the UI can be honest about it.
