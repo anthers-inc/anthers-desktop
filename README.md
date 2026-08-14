@@ -1,4 +1,4 @@
-# Anthers Studio (desktop)
+# Anthers Desktop
 
 The Tauri shell around the Studio. It bundles the **same `apps/web` build** the site serves, opening it at `/studio` — the
 browser Studio serves — this is a third consumer of `@anthers/web-shared`, not a fork —
@@ -114,7 +114,7 @@ Two things in that flow are non-obvious, both learned from `~/Lily`:
    Left set, Tauri notarizes inline — wasting a round trip to Apple on a binary that is
    about to be replaced by the re-sign.
 
-Anthers Studio adds one wrinkle Lily doesn't have: the **ffmpeg sidecars are separate
+Anthers Desktop adds one wrinkle Lily doesn't have: the **ffmpeg sidecars are separate
 executables inside the bundle**, so the re-sign walks everything in `Contents/MacOS/`
 rather than just the main binary, and signs the `.app` last — a bundle signature seals
 whatever it contains at that moment.

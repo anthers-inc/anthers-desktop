@@ -2,7 +2,7 @@
 // Prevents an extra console window on Windows in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-//! Anthers Studio — the desktop shell around the Studio app.
+//! Anthers — the desktop shell around the whole Anthers app.
 //!
 //! It bundles the SAME `apps/studio-web` build the browser Studio serves; this is a
 //! third consumer of `@anthers/web-shared`, not a fork. What the shell adds is the
@@ -394,5 +394,5 @@ fn main() {
 			cleanup_encode
 		])
 		.run(tauri::generate_context!())
-		.expect("error while running Anthers Studio");
+		.expect("error while running Anthers");
 }

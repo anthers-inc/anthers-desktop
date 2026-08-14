@@ -1,8 +1,8 @@
 [package]
-name = "anthers-studio"
+name = "anthers-desktop"
 version = "0.1.0"
 edition = "2021"
-description = "Anthers Studio — desktop Creator Studio"
+description = "Anthers — the desktop app for the Anthers platform"
 authors = ["Parker H. Davis, LLC"]
 license = "AGPL-3.0-or-later"
 
