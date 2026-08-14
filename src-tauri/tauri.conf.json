@@ -4,10 +4,10 @@
 	"version": "0.1.0",
 	"identifier": "org.anthers.desktop",
 	"build": {
-		"beforeDevCommand": "bun run sidecar/fetch-ffmpeg.ts && cd ../web && bun run build",
+		"beforeDevCommand": "bun run sidecar/fetch-ffmpeg.ts && bun run scripts/resolve-web.ts",
 		"devUrl": "http://localhost:3000",
-		"frontendDist": "../../web/dist",
-		"beforeBuildCommand": "bun run sidecar/fetch-ffmpeg.ts && cd ../web && bun run build"
+		"frontendDist": "../web-dist",
+		"beforeBuildCommand": "bun run sidecar/fetch-ffmpeg.ts && bun run scripts/resolve-web.ts"
 	},
 	"app": {
 		"windows": [
@@ -40,18 +40,18 @@
 		"category": "DeveloperTool",
 		"shortDescription": "Anthers \u2014 the creative garden, on your desktop",
 		"longDescription": "The desktop Creator Studio for Anthers: draft posts, manage your content library, and encode video on your own machine with native ffmpeg instead of tying up a browser tab.",
-		"licenseFile": "../../../LICENSE.md",
+		"licenseFile": "../LICENSE.md",
 		"linux": {
 			"deb": {
 				"depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
 			}
 		},
 		"icon": [
-			"../../../packages/brand/app-icons/32x32.png",
-			"../../../packages/brand/app-icons/128x128.png",
-			"../../../packages/brand/app-icons/128x128@2x.png",
-			"../../../packages/brand/app-icons/icon.icns",
-			"../../../packages/brand/app-icons/icon.ico"
+			"../icons/32x32.png",
+			"../icons/128x128.png",
+			"../icons/128x128@2x.png",
+			"../icons/icon.icns",
+			"../icons/icon.ico"
 		],
 		"externalBin": ["binaries/anthers-ffmpeg", "binaries/anthers-ffprobe"],
 		"macOS": {

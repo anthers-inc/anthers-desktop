@@ -1,0 +1,8 @@
+# The web app, resolved in by scripts/resolve-web.ts. A build artifact, never committed.
+/web-dist/
+/.web-dist.tar.gz
+
+# Bundled ffmpeg/ffprobe, fetched at build time (see sidecar/fetch-ffmpeg.ts)
+/src-tauri/binaries/
+
+node_modules/
