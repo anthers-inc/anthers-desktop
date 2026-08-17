@@ -1,27 +1,31 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Native video encoding with the bundled ffmpeg sidecar.
 //!
-//! This is the reason the desktop app is worth building. 44.00 § 2.4 gives on-device
-//! transcoding "extra urgency" because transcode compute is one of the platform's
-//! larger fixed early costs, and diffusing it across creators' own machines drives it
-//! toward zero. The browser already encodes on device, but with two hard limits this
-//! removes: `ffmpeg.wasm` is single-threaded per rung and capped at a 300 MB source,
-//! and the creator is **tied to the tab** for the whole encode.
+//! # 🚨 DORMANT since 2026-08-17 — kept deliberately, not dead code
 //!
-//! ## Same ladder, same output contract
+//! **Nothing calls `encode_video` today.** The web bundle this shell wraps used to reach
+//! it through a native file picker inside the Work upload dialog; that path, and the
+//! browser `ffmpeg.wasm` encoder beside it, were removed from `anthers-inc/anthers` on
+//! 2026-08-17 because neither worked well enough to ship. Uploading a video now means
+//! the server processes it, here as in the browser.
 //!
-//! The rungs, bitrates, keyframe interval and x264 settings match
-//! `packages/web-shared/src/lib/transcode.ts` exactly, because the server's
-//! `package-video` job remuxes these variants into HLS with `-c copy`. If the two
-//! encoders drift, the browser path and the desktop path produce differently-segmented
-//! ladders from the same source — so the args live here in one visible block rather
-//! than being assembled cleverly.
+//! This module survives because on-device encoding is **coming back in a different
+//! shape**: a deliberate *pre-process* step that turns local media into a single upload
+//! pack the creator then uploads through the ordinary dialog — rather than an encode the
+//! upload dialog performs invisibly. That is the "upload pack" in 44.00 § 2.4, and this
+//! is the encoder it will drive. Delete it only if that plan is abandoned.
+//!
+//! ⚠️ **What is NOT settled is the output contract**, so don't assume the block below is
+//! still the target. The ladder here was matched rung-for-rung to the browser encoder
+//! because the server's `package-video` job remuxed both with `-c copy` — and both of
+//! those are gone. The pack format is an open design question owned by the pre-process
+//! task; settle it before trusting these arguments, and expect the packaging to change.
 //!
 //! ## Why files rather than bytes
 //!
 //! The webview hands over a *path*, ffmpeg reads and writes *files*, and only the
 //! finished variants cross back into JS. A 4 GB source is never held in memory by
-//! anyone — which is exactly what the browser path cannot do.
+//! anyone. That property is the reason to build on this rather than start over.
 
 use std::path::{Path, PathBuf};
 
