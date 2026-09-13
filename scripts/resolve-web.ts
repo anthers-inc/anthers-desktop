@@ -19,8 +19,7 @@
 // release asset downloads anonymously. Verified both ways before choosing.
 //
 // The sibling-checkout path is what keeps the split cheap. Iterating on the web app and
-// the shell together stays `build web → run desktop`, with no publish step in between —
-// the same shape `BRAND_SOURCE` uses for the icon library in the platform repo.
+// the shell together stays `build web → run desktop`, with no publish step in between.
 
 import { existsSync, rmSync, mkdirSync } from "node:fs";
 import { cp, readFile } from "node:fs/promises";
