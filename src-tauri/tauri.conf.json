@@ -35,8 +35,8 @@
 	"bundle": {
 		"active": true,
 		"targets": ["deb", "rpm", "appimage", "nsis", "msi", "app", "dmg"],
-		"publisher": "Parker H. Davis, LLC",
-		"copyright": "Copyright (c) 2026 Parker H. Davis, LLC",
+		"publisher": "Anthers, Inc.",
+		"copyright": "Copyright (c) 2026 Anthers, Inc.",
 		"category": "DeveloperTool",
 		"shortDescription": "Anthers \u2014 the creative garden, on your desktop",
 		"longDescription": "The desktop Creator Studio for Anthers: draft posts, manage your content library, and encode video on your own machine with native ffmpeg instead of tying up a browser tab.",
