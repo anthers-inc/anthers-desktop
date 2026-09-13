@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 //
 // Put a built Anthers web app at ./web-dist, which is what Tauri bundles.
 //
@@ -15,7 +15,7 @@
 // choice and the wrong one: GitHub's own documentation says "You need an access token to
 // publish, install, and delete private, internal, and public packages." Authentication is
 // required even for PUBLIC packages, so a package would mean every contributor and every
-// CI run needed a token to install a public dependency of a public, AGPL project. A
+// CI run needed a token to install a public dependency of a public, open-source project. A
 // release asset downloads anonymously. Verified both ways before choosing.
 //
 // The sibling-checkout path is what keeps the split cheap. Iterating on the web app and

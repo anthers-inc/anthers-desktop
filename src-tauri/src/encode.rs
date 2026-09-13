@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 //! Native video encoding with the bundled ffmpeg sidecar.
 //!
 //! # 🚨 DORMANT since 2026-08-17 — kept deliberately, not dead code

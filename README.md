@@ -29,7 +29,7 @@ source that works:
 choice and the wrong one: GitHub's documentation says *"You need an access token to
 publish, install, and delete private, internal, and public packages."* Authentication is
 required even for **public** packages — so a package would mean every contributor and
-every CI run needing a token to install a public dependency of a public, AGPL project. A
+every CI run needing a token to install a public dependency of a public, open-source project. A
 release asset downloads anonymously.
 
 ## Running it
@@ -216,11 +216,11 @@ encode, and lifting it means moving the upload into Rust.
 
 ## Licensing note
 
-Anthers is AGPL-3.0-or-later and `bundle.licenseFile` points at the repo `LICENSE.md`.
+Anthers is Apache-2.0 and `bundle.licenseFile` points at the repo `LICENSE.md`.
 
 The bundled ffmpeg builds are **GPL**, because H.264 encoding needs libx264 and that is
-what makes a build GPL rather than LGPL. AGPL-3.0-or-later is GPL-compatible, and ffmpeg
+what makes a build GPL rather than LGPL. Apache-2.0 is compatible with GPL-3.0, and ffmpeg
 ships here as a **separate executable invoked as a subprocess**, not linked into our
-binary. The obligation is to pass the licence along and say where the corresponding
+binary. The obligation is to pass the license along and say where the corresponding
 source is — see `sidecar/THIRD-PARTY.md`. Swapping to an LGPL build to avoid that would
 also drop libx264, and with it the feature.
