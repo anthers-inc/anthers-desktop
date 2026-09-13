@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Fetch the static ffmpeg + ffprobe binaries the desktop Studio bundles as Tauri
  * sidecars, naming them with the Rust target triple Tauri's `externalBin` expects
@@ -11,8 +11,8 @@
  * ## Licensing (read before changing the source URLs)
  *
  * These are **GPL** builds, because H.264 encoding needs libx264 and that is what
- * makes a build GPL rather than LGPL. Anthers is AGPL-3.0-or-later, which is
- * GPL-compatible, and ffmpeg ships here as a **separate executable invoked as a
+ * makes a build GPL rather than LGPL. Anthers is Apache-2.0, which is compatible
+ * with GPL-3.0, and ffmpeg ships here as a **separate executable invoked as a
  * subprocess** — not linked into our binary. The obligation that follows is to pass
  * the licence along and to say where the corresponding source is; both live in
  * `THIRD-PARTY.md` beside this script. If you ever swap in an LGPL build to avoid

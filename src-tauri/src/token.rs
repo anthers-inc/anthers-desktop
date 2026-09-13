@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 //! Where the desktop session token lives at rest.
 //!
 //! 42.06 left this open between the OS keychain and `tauri-plugin-store` (a plaintext

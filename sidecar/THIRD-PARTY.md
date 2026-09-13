@@ -6,7 +6,7 @@ Third-party binaries bundled with the desktop Studio. These are **not** in this 
 
 These are **GPL** builds rather than LGPL because H.264 encoding requires **libx264**, and linking it is what makes an FFmpeg build GPL. Dropping to an LGPL build would remove libx264 and with it the entire on-device encoding feature, so the GPL flavour is deliberate.
 
-Anthers is **AGPL-3.0-or-later**, which is GPL-compatible. FFmpeg is bundled as a **separate executable invoked as a subprocess** — it is not linked into, and shares no address space with, the Anthers binary. The obligations we carry are therefore to distribute the licence text with the binaries and to make the corresponding source available.
+Anthers is **Apache-2.0**, which is compatible with GPL-3.0. FFmpeg is bundled as a **separate executable invoked as a subprocess** — it is not linked into, and shares no address space with, the Anthers binary. The obligations we carry are therefore to distribute the licence text with the binaries and to make the corresponding source available.
 
 ## Where the binaries come from
 
