@@ -163,7 +163,7 @@ src-tauri/
   tauri.conf.json  Window, bundle targets, icons, the anthers:// scheme
   capabilities/    Webview permissions — deliberately minimal
 icons/             Packaging icons, cut by `bunx tauri icon` from the platform's
-                   packages/brand/logo/preps/antherslogo_thumb1x1_light.png
+                   packages/brand/logo/preps/anthersthumb_1x1_light.png
 scripts/           resolve-web.ts — puts a built web app at ./web-dist
 sidecar/           Build-time fetch of the bundled ffmpeg/ffprobe
 web-dist/          The web app (gitignored, resolved in — never committed)
