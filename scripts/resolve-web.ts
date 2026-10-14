@@ -9,7 +9,16 @@
 //
 //   1. ANTHERS_WEB=/path/to/dist   — an explicit, already-built dist. Overrides everything.
 //   2. a sibling ../Anthers checkout — built on demand. The working setup for local dev.
-//   3. the pinned release asset     — downloaded. What CI and a clean machine use.
+//   3. the pinned release asset     — downloaded, signature-verified. What CI and a clean
+//                                     machine use. Force with ANOTHERS_WEB_SOURCE=asset.
+//
+// 🚨 Every pinned download is VERIFIED before it is installed, against the Ed25519
+// key pinned in `scripts/web-dist-signing.pub`, and fails closed: a release that
+// carries no signature beside the archive is refused, not installed. The verifier is
+// `scripts/web-sig.ts`; the format's contract and owner live in the platform repo's
+// `scripts/sign-web-dist.ts`. TLS to GitHub is not the reason for this — a signature
+// ties the download to a key CI holds, so a compromised release pipeline cannot hand
+// this shell a tampered bundle.
 //
 // 🚨 Why a RELEASE ASSET and not a package on GitHub Packages, which is the obvious
 // choice and the wrong one: GitHub's own documentation says "You need an access token to
@@ -24,6 +33,7 @@
 import { existsSync, rmSync, mkdirSync } from "node:fs";
 import { cp, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { verifyWebDist } from "./web-sig.ts";
 
 const ROOT = join(import.meta.dir, "..");
 const DEST = join(ROOT, "web-dist");
@@ -56,7 +66,11 @@ if (explicit) {
 
 // ── 2. sibling checkout ──────────────────────────────────────────────────────
 const siblingWeb = join(SIBLING, "apps", "web");
-if (existsSync(siblingWeb)) {
+// ANOTHERS_WEB_SOURCE=asset skips this checkout and the explicit path, so the pinned
+// asset path can be exercised on a machine where the sibling exists — how the pin is
+// proven without renaming directories around it.
+const assetOnly = process.env.ANTHERS_WEB_SOURCE === "asset";
+if (!assetOnly && existsSync(siblingWeb)) {
 	console.log(`[web] building from the sibling checkout at ${SIBLING}`);
 	const build = Bun.spawnSync(["bun", "run", "build"], {
 		cwd: siblingWeb,
@@ -72,32 +86,55 @@ if (existsSync(siblingWeb)) {
 }
 
 // ── 3. the pinned release asset ──────────────────────────────────────────────
+// (Reached directly, with no sibling and no explicit dist — or forced, with
+// ANOTHERS_WEB_SOURCE=asset.)
 if (!pinned) {
 	console.error(
 		"[web] No web build available, and no release pinned.\n" +
 			"      Do one of:\n" +
 			`        • clone the platform beside this repo:  git clone https://github.com/anthers-inc/anthers.git ${SIBLING}\n` +
 			"        • point at an existing build:           ANTHERS_WEB=/path/to/apps/web/dist\n" +
-			'        • pin a release in package.json:        "anthersWeb": "web-v0.1.0"',
+			'        • pin a release in package.json:        "anthersWeb": "web-v<the web app’s calver version>"',
 	);
 	process.exit(1);
 }
 
 const url = `https://github.com/anthers-inc/anthers/releases/download/${pinned}/web-dist.tar.gz`;
 console.log(`[web] downloading ${pinned} …`);
-const res = await fetch(url);
-if (!res.ok) {
+const [tarRes, sigRes] = await Promise.all([fetch(url), fetch(`${url}.sig`)]);
+if (!tarRes.ok) {
 	console.error(
-		`[web] ${res.status} fetching ${url}\n` +
+		`[web] ${tarRes.status} fetching ${url}\n` +
 			"      Either that release has no web-dist.tar.gz asset, or the pin in package.json\n" +
 			"      names a release that does not exist.",
 	);
 	process.exit(1);
 }
+if (!sigRes.ok) {
+	console.error(
+		`[web] ${sigRes.status} fetching ${url}.sig\n` +
+			"      The release must carry web-dist.tar.gz.sig beside the archive. An unsigned build\n" +
+			"      is refused rather than installed — the signature is what ties the download to the\n" +
+			"      key CI holds, and the verifier (scripts/web-sig.ts) never relaxes on its absence.",
+	);
+	process.exit(1);
+}
+const tar = join(ROOT, ".web-dist.tar.gz");
+const tarBytes = Buffer.from(await tarRes.arrayBuffer());
+if (!verifyWebDist(tarBytes, await sigRes.text(), await readFile(join(import.meta.dir, "web-dist-signing.pub"), "utf8"))) {
+	rmSync(tar, { force: true });
+	console.error(
+		`[web] ${pinned}'s archive does not carry a signature this repository's pinned key verifies.\n` +
+			"      Refusing to install it. If the signing key was rotated, the new public half\n" +
+			"      arrives in an update to scripts/web-dist-signing.pub (and the verifier fails\n" +
+			"      closed in the meantime).",
+	);
+	process.exit(1);
+}
+console.log(`[web] signature verified`);
 rmSync(DEST, { recursive: true, force: true });
 mkdirSync(DEST, { recursive: true });
-const tar = join(ROOT, ".web-dist.tar.gz");
-await Bun.write(tar, await res.arrayBuffer());
+await Bun.write(tar, tarBytes);
 const untar = Bun.spawnSync(["tar", "xzf", tar, "-C", DEST, "--strip-components=1"], {
 	stdout: "inherit",
 	stderr: "inherit",
