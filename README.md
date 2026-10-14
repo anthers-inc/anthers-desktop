@@ -23,7 +23,9 @@ source that works:
    keeps working across two repositories cheap: iterating on the web app and the shell
    together stays `build web → run desktop`, with no publish step in between.
 3. **The pinned release asset** — downloaded from the platform's releases. What CI and a
-   clean machine use. The pin is `anthersWeb` in `package.json`.
+   clean machine use. The pin is `anthersWeb` in `package.json`, naming a `web-v*`
+   release tag. `ANTHERS_WEB_SOURCE=asset` forces this source where a sibling checkout
+   also exists — which is how the pin itself is exercised.
 
 🚨 **Why a release asset and not a package on GitHub Packages**, which is the obvious
 choice and the wrong one: GitHub's documentation says *"You need an access token to
@@ -31,6 +33,17 @@ publish, install, and delete private, internal, and public packages."* Authentic
 required even for **public** packages — so a package would mean every contributor and
 every CI run needing a token to install a public dependency of a public, open-source project. A
 release asset downloads anonymously.
+
+### The signed web build
+
+The platform's `release-web` workflow signs the archive it attaches (a plain Ed25519
+signature; the format's owner is that repository's `scripts/sign-web-dist.ts`), and the
+pinned download is **verified before it is installed, failing closed**: `scripts/web-sig.ts`
+refuses an archive whose `.sig` is missing, malformed, or wrong for the key committed at
+`scripts/web-dist-signing.pub`. The signature ties a download to a key CI holds rather
+than to GitHub's channel, so a compromised release pipeline cannot hand the shell a
+tampered bundle. A key rotation is a replacement of the secret *and* of the `.pub` file
+here — a single active key; the verifier accepts nothing the rotated key did not sign.
 
 ## Running it
 
