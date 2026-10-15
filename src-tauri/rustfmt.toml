@@ -1,0 +1,2 @@
+# House style is tabs everywhere; match the existing code rather than rustfmt's spaces.
+hard_tabs = true

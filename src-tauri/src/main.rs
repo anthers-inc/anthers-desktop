@@ -125,7 +125,11 @@ fn sha256_hex(input: &str) -> String {
 	use sha2::{Digest, Sha256};
 	let mut hasher = Sha256::new();
 	hasher.update(input.as_bytes());
-	hasher.finalize().iter().map(|b| format!("{b:02x}")).collect()
+	hasher
+		.finalize()
+		.iter()
+		.map(|b| format!("{b:02x}"))
+		.collect()
 }
 
 /// Pull the `code` out of an `anthers://auth/callback?code=…` deep link.
@@ -176,7 +180,10 @@ fn handle_urls<R: Runtime, S: AsRef<str>>(app: &AppHandle<R>, raws: &[S]) {
 /// What the app knows at boot: the stored token (if any) and which API to talk to.
 #[tauri::command]
 fn session_state(store: tauri::State<'_, TokenStore>) -> SessionState {
-	SessionState { token: store.load(), api_base_url: api_base_url() }
+	SessionState {
+		token: store.load(),
+		api_base_url: api_base_url(),
+	}
 }
 
 /// Begin enrolment: mint a PKCE verifier, register the challenge with the API, and
@@ -199,7 +206,10 @@ async fn begin_sign_in(
 	)
 	.await?;
 	if !res.status().is_success() {
-		return Err(format!("Anthers refused the sign-in request ({})", res.status()));
+		return Err(format!(
+			"Anthers refused the sign-in request ({})",
+			res.status()
+		));
 	}
 
 	// Only store the verifier once the server has accepted its challenge, so a failed
@@ -239,7 +249,10 @@ async fn complete_sign_in(
 		return Err("That sign-in link is no longer valid. Try again.".into());
 	}
 
-	let text = res.text().await.map_err(|e| format!("Unexpected reply from Anthers: {e}"))?;
+	let text = res
+		.text()
+		.await
+		.map_err(|e| format!("Unexpected reply from Anthers: {e}"))?;
 	let body: serde_json::Value =
 		serde_json::from_str(&text).map_err(|e| format!("Unexpected reply from Anthers: {e}"))?;
 	let token = body
@@ -248,7 +261,10 @@ async fn complete_sign_in(
 		.ok_or("Anthers did not return a session.")?;
 
 	let persistence = store.save(token);
-	Ok(SignInResult { token: token.to_string(), persistence })
+	Ok(SignInResult {
+		token: token.to_string(),
+		persistence,
+	})
 }
 
 #[derive(Serialize)]
@@ -360,7 +376,7 @@ fn main() {
 		.manage(PendingCode::default())
 		.setup(move |app| {
 			if let Some(window) = app.get_webview_window("main") {
-				let _ = window.eval(&initialization_script(&api_base, token.as_deref()));
+				let _ = window.eval(initialization_script(&api_base, token.as_deref()));
 			}
 
 			// In dev there is no installed bundle to own the scheme, so bind it to the
@@ -379,7 +395,11 @@ fn main() {
 			}
 			let handle = app.handle().clone();
 			app.deep_link().on_open_url(move |event| {
-				let raws: Vec<String> = event.urls().iter().map(|u| u.as_str().to_string()).collect();
+				let raws: Vec<String> = event
+					.urls()
+					.iter()
+					.map(|u| u.as_str().to_string())
+					.collect();
 				handle_urls(&handle, &raws);
 			});
 			Ok(())
@@ -395,4 +415,72 @@ fn main() {
 		])
 		.run(tauri::generate_context!())
 		.expect("error while running Anthers");
+}
+
+// ─── Tests ───────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn callback_code_reads_the_query_from_a_standard_callback_url() {
+		assert_eq!(
+			callback_code("anthers://auth/callback?code=abc123"),
+			Some("abc123".into())
+		);
+	}
+
+	#[test]
+	fn callback_code_does_not_insist_on_the_platforms_host_path_split() {
+		// Custom-scheme URL parsing differs per platform — some put `auth` in the host,
+		// which here changes only what precedes the query; every anthers:// spelling
+		// that carries the query must yield the code.
+		assert_eq!(
+			callback_code("anthers://callback?code=abc123"),
+			Some("abc123".into())
+		);
+		assert_eq!(
+			callback_code("anthers:auth/callback?code=abc123"),
+			Some("abc123".into())
+		);
+	}
+
+	#[test]
+	fn callback_code_rejects_other_schemes_and_codeless_callbacks() {
+		assert_eq!(
+			callback_code("https://anthers.org/desktop/authorize?code=abc123"),
+			None
+		);
+		assert_eq!(callback_code("anthers://auth/callback"), None);
+		assert_eq!(callback_code("not a url"), None);
+	}
+
+	#[test]
+	fn the_conf_paths_resolve_from_the_bases_the_readme_warns_about() {
+		// The README's config-path warning: `frontendDist` and `licenseFile` resolve
+		// from src-tauri/, while the before-commands run from the app dir — a wrong
+		// number of `../` breaks only at a real `tauri build` and never at `cargo
+		// check`. This asserts each target exists at the base its setting resolves
+		// from, so a path edit that looks right again cannot sit broken.
+		let conf_text =
+			std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/tauri.conf.json"))
+				.unwrap();
+		let conf: serde_json::Value = serde_json::from_str(&conf_text).unwrap();
+		let src_tauri = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+		let dist = conf["build"]["frontendDist"].as_str().unwrap();
+		let license = conf["bundle"]["licenseFile"].as_str().unwrap();
+		assert!(src_tauri.join(dist).join("index.html").is_file());
+		assert!(src_tauri.join(license).is_file());
+		// The before-commands run from the app dir and name only repo-local scripts.
+		for cmd in [
+			conf["build"]["beforeDevCommand"].as_str().unwrap(),
+			conf["build"]["beforeBuildCommand"].as_str().unwrap(),
+		] {
+			assert!(
+				cmd.starts_with("bun "),
+				"before-command must run under bun, got {cmd}"
+			);
+		}
+	}
 }

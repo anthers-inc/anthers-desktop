@@ -1,0 +1,70 @@
+# The shell's one gate: the pinned web build resolves and verifies, then the Rust
+# crate checks out of fmt/clippy and passes its first standing tests. The release
+# workflow's installers never belong here — packaging failures must not block a code
+# check, whatever cadence they end up on.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  shell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # resolve-web is dependency-free, so only the runner is needed here.
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      # The Tauri shell compiles against the GTK/webkit stack on Linux — its webview
+      # sys crates fail pkg-config without the dev packages.
+      - name: Install the webview's Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # tauri-build validates bundle.externalBin at compile time even for a plain
+      # cargo check, and the gitignored ~150 MB sidecar pair is absent in a clean
+      # checkout. Cache ahead of the fetch; the fetch is idempotent, so a cache hit
+      # pays nothing and a miss downloads once.
+      - uses: actions/cache@v4
+        with:
+          path: src-tauri/binaries
+          key: sidecars-${{ hashFiles('sidecar/fetch-ffmpeg.ts') }}
+          restore-keys: sidecars-
+      - name: Fetch the ffmpeg sidecars
+        run: bun run sidecar/fetch-ffmpeg.ts
+
+      # The clean checkout has no web-dist (gitignored, resolved in), and the
+      # config-path standing test asserts the conf's targets exist at the bases they
+      # resolve from — so CI resolves the pin first. This step is also the pin
+      # contract's live proof: it downloads the promoted release's signed dist and
+      # refuses it on any signature failure, on every pull request.
+      - name: Resolve the pinned web build
+        run: bun run web
+
+      - name: Format
+        run: cargo fmt --check
+        working-directory: src-tauri
+
+      - name: Lint
+        run: cargo clippy -- -D warnings
+        working-directory: src-tauri
+
+      - name: Test
+        run: cargo test
+        working-directory: src-tauri
