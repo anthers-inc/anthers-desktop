@@ -30,10 +30,20 @@
 			"desktop": {
 				"schemes": ["anthers"]
 			}
+		},
+		"updater": {
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRDNDMwMUMzRDIzOTVBMzMKUldReldqblN3d0ZEVEdHVk5CZVg3bkVrZmR1bHJySzBid1JheU5ocDF3bGdpL2RJRmpmbUtzWmYK",
+			"endpoints": [
+				"https://github.com/anthers-inc/anthers-desktop/releases/latest/download/latest.json"
+			],
+			"windows": {
+				"installMode": "passive"
+			}
 		}
 	},
 	"bundle": {
 		"active": true,
+		"createUpdaterArtifacts": true,
 		"targets": ["deb", "rpm", "appimage", "nsis", "msi", "app", "dmg"],
 		"publisher": "Anthers, Inc.",
 		"copyright": "Copyright (c) 2026 Anthers, Inc.",

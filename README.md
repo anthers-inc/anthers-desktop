@@ -124,20 +124,27 @@ Output lands in `src-tauri/target/release/bundle/`.
 | Windows | `.msi`, `.exe` (NSIS) | unsigned; SmartScreen will warn until we buy a cert |
 | macOS | `.app`, `.dmg` | signed + notarized, see below |
 
+A release also carries the updater artifacts (signed update bundles and `.sig`
+files) from which the workflow rewrites `latest.json` for the update channel above.
+
 ### Cutting a release
 
 ```
-# sync the version across Cargo.toml + tauri.conf.json + package.json, then
-# on each machine:
-bun run build                    # (+ notarize on the Mac)
-# then create a DRAFT release and upload the collected bundles
+git tag desktop-vX.Y.Z && git push origin desktop-vX.Y.Z
 ```
 
-`desktop-release` creates the release as a **draft** — review the artifact list before
-publishing. Tag names are `desktop-vX.Y.Z`, kept distinct from the platform's tags.
+The three version fields in `Cargo.toml`, `tauri.conf.json` and `package.json` are
+kept in lockstep by hand first, since the DMG filename — and therefore the notarize
+step that looks for it — is derived from `Cargo.toml`.
 
-Keep the three version fields in lockstep: the DMG filename, and therefore the notarize
-step that looks for it, is derived from `Cargo.toml`.
+The `release` workflow then builds the matrix and opens a **draft** release carrying
+every bundle, the updater's signed artifacts, and `latest.json`; the artifact list
+gets a review before publishing from the Releases page. Tag names stay
+`desktop-vX.Y.Z`, distinct from the platform's tags. A `workflow_dispatch` run of
+the workflow builds and uploads bundles as workflow artifacts without touching a
+release — how the matrix is re-proven between tags. `macos-latest` builds the
+Apple-Silicon shell; an x64 macOS distribution would need its own runner job,
+added when signing does.
 
 ### macOS signing + notarization
 
@@ -167,6 +174,26 @@ whatever it contains at that moment.
 unsigned-executable-memory (WKWebView JITs JavaScript, and the hardened runtime would
 otherwise take the whole webview down). Library validation is intentionally left ON —
 the ffmpeg sidecars are static and load no external dylibs.
+
+## The updater
+
+A release build checks its update channel once at startup (`src/updates.rs`), and if a
+newer `desktop-v*` release is published it silently downloads that release's update
+artifact, verifies it against `plugins.updater.pubkey` in `tauri.conf.json`, and
+applies it at exit — the next launch is the new version. No prompt and no in-app
+surface, per the freshness decision this whole mechanism is; an unreachable channel
+or a signature miss is a log line, never a dialog. The channel is the release list
+itself — `releases/latest/download/latest.json`, rewritten by every published
+release.
+
+Two pinned keys guard the desktop: the web-build signature (above), which decides
+what the shell *builds against*, and this one, which decides what an *installed* app
+becomes. The private half rides the release workflow as `TAURI_SIGNING_PRIVATE_KEY`
+(plus its password secret), with its recovery copy in the team's credential store.
+A rotation replaces the secret and this `pubkey` in one release, and nothing the old
+key signed installs afterwards. The web-build signature and the updater key are
+separate keys on purpose — one protects a build input, the other protects a running
+installation, and a single key would make them one compromise wide.
 
 ## Layout
 
