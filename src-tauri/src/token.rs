@@ -75,3 +75,39 @@ impl TokenStore {
 		}
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn persistence_serializes_camel_case_for_the_webview() {
+		assert_eq!(
+			serde_json::to_string(&Persistence::Keychain).unwrap(),
+			"\"keychain\""
+		);
+		assert_eq!(
+			serde_json::to_string(&Persistence::MemoryOnly).unwrap(),
+			"\"memoryOnly\""
+		);
+	}
+
+	#[test]
+	fn a_token_saved_is_read_back_whatever_the_keychain_said() {
+		// The contract the UI relies on: save returns a Persistence that tells the truth
+		// about whether a restart will keep the token, and load answers with the saved
+		// value either way — memory is the authoritative copy, the keychain the mirror.
+		// The keychain write is incidental here and the entry this leaves is deleted by
+		// the clear() at the end; on a box with no Secret Service provider the save
+		// reports MemoryOnly and the same assertions hold.
+		let store = TokenStore::default();
+		let persistence = store.save("a test token");
+		assert!(matches!(
+			persistence,
+			Persistence::Keychain | Persistence::MemoryOnly
+		));
+		assert_eq!(store.load().as_deref(), Some("a test token"));
+		store.clear();
+		assert_eq!(store.load(), None);
+	}
+}

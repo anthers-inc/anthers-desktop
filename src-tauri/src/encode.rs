@@ -123,13 +123,20 @@ pub async fn probe(app: &AppHandle, source: &Path) -> Result<(f64, u32, u32), St
 	let parsed: ProbeOutput = serde_json::from_slice(&output.stdout)
 		.map_err(|e| format!("Could not read the video's metadata: {e}"))?;
 
-	let stream = parsed.streams.first().ok_or("That file has no video track.")?;
+	let stream = parsed
+		.streams
+		.first()
+		.ok_or("That file has no video track.")?;
 	let width = stream.width.unwrap_or(0);
 	let height = stream.height.unwrap_or(0);
 	if width == 0 || height == 0 {
 		return Err("Could not read the video's dimensions.".into());
 	}
-	let duration = parsed.format.duration.and_then(|d| d.parse::<f64>().ok()).unwrap_or(0.0);
+	let duration = parsed
+		.format
+		.duration
+		.and_then(|d| d.parse::<f64>().ok())
+		.unwrap_or(0.0);
 
 	Ok((duration, width, height))
 }
@@ -307,7 +314,13 @@ pub async fn encode_ladder(app: AppHandle, source_path: String) -> Result<Encode
 	}
 
 	let emit = |stage: &str, percent: u32| {
-		let _ = app.emit("encode-progress", EncodeProgress { stage: stage.into(), percent });
+		let _ = app.emit(
+			"encode-progress",
+			EncodeProgress {
+				stage: stage.into(),
+				percent,
+			},
+		);
 	};
 
 	emit("Reading video", 1);
@@ -317,7 +330,8 @@ pub async fn encode_ladder(app: AppHandle, source_path: String) -> Result<Encode
 	// A per-run temp directory, so a failed run never collides with the next and the
 	// caller can delete the whole thing once uploads finish.
 	let work_dir = std::env::temp_dir().join(format!("anthers-encode-{}", std::process::id()));
-	std::fs::create_dir_all(&work_dir).map_err(|e| format!("Could not create a work folder: {e}"))?;
+	std::fs::create_dir_all(&work_dir)
+		.map_err(|e| format!("Could not create a work folder: {e}"))?;
 
 	let poster_path = extract_poster(
 		&app,
@@ -337,7 +351,10 @@ pub async fn encode_ladder(app: AppHandle, source_path: String) -> Result<Encode
 			let overall = (i as f64 + f) / total;
 			let _ = app.emit(
 				"encode-progress",
-				EncodeProgress { stage: label.clone(), percent: (3.0 + overall * 92.0) as u32 },
+				EncodeProgress {
+					stage: label.clone(),
+					percent: (3.0 + overall * 92.0) as u32,
+				},
 			);
 		})
 		.await?;
