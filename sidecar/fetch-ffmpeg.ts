@@ -64,13 +64,19 @@ const SOURCES: Record<string, Source> = {
 	},
 };
 
+import { chmod, copyFile, mkdir, rm } from "node:fs/promises";
+import { join, resolve } from "node:path";
+
 function hostKey(): string {
 	const platform = process.platform;
 	const arch = process.arch === "arm64" ? "arm64" : "x64";
 	return `${platform}-${arch}`;
 }
 
-const BIN_DIR = new URL("../src-tauri/binaries/", import.meta.url).pathname;
+// Resolved with node:path, not `new URL(...).pathname`: on Windows that yields a
+// POSIX-shaped path (`/C:/Users/…`) that curl cannot write to, which is how the
+// first Windows run died with curl exit 23.
+const BIN_DIR = resolve(import.meta.dir, "../src-tauri/binaries");
 
 async function exists(path: string): Promise<boolean> {
 	return await Bun.file(path).exists();
@@ -102,7 +108,7 @@ async function main() {
 		{ name: "ffprobe", binary: "anthers-ffprobe" },
 	].map((t) => ({
 		...t,
-		dest: `${BIN_DIR}${t.binary}-${source.triple}${exeSuffix}`,
+		dest: join(BIN_DIR, `${t.binary}-${source.triple}${exeSuffix}`),
 	}));
 
 	if ((await Promise.all(targets.map((t) => exists(t.dest)))).every(Boolean)) {
@@ -110,49 +116,46 @@ async function main() {
 		return;
 	}
 
-	await run(["mkdir", "-p", BIN_DIR]);
-	const work = `${BIN_DIR}.download`;
-	await run(["rm", "-rf", work]);
-	await run(["mkdir", "-p", work]);
+	await mkdir(BIN_DIR, { recursive: true });
+	const work = join(BIN_DIR, ".download");
+	await rm(work, { recursive: true, force: true });
+	await mkdir(work, { recursive: true });
 
 	console.log(`Fetching ffmpeg (${VERSION_PIN}-class GPL static) for ${source.triple}…`);
-	const archive = `${work}/archive`;
+	const archive = join(work, "archive");
 	await run(["curl", "-fsSL", "-o", archive, source.url]);
 
 	// Extracted whole rather than with --strip-components, because the layouts differ
-	// per source (and change upstream); the `find` below locates the binaries wherever
-	// they land, which is one less thing to keep in sync.
+	// per source (and change upstream); the Glob below locates the binaries wherever
+	// they land, which is one less thing to keep in sync. Zip archives ride `tar`,
+	// not `unzip`: `tar` is BSD's on both darwin and Windows runners and reads zip
+	// natively, while `unzip` is a GNU-side extra.
 	if (source.kind === "tar.xz") {
 		await run(["tar", "-xJf", archive, "-C", work]);
 	} else {
-		await run(["unzip", "-q", "-o", archive, "-d", work]);
+		await run(["tar", "-xf", archive, "-C", work]);
 	}
 
 	for (const t of targets) {
-		// The archive layouts differ; find the binary wherever it landed.
-		const found = Bun.spawnSync([
-			"find",
-			work,
-			"-type",
-			"f",
-			"-name",
-			`${t.name}${exeSuffix}`,
-			"-print",
-			"-quit",
-		]);
-		const src = found.stdout.toString().trim();
+		// Located wherever it landed in the extracted tree — upstream layouts differ
+		// and change; macOS's Apple-double `__MACOSX` metadata entries don't match.
+		const glob = new Bun.Glob(`**/${t.name}${exeSuffix}`);
+		const src = glob.scanSync({ cwd: work, onlyFiles: true }).next().value;
 		if (!src) {
 			throw new Error(
 				`${t.name} not found in the downloaded archive for ${source.triple}. ` +
 					`The upstream layout may have changed — check ${source.url}.`,
 			);
 		}
-		await run(["cp", src, t.dest]);
-		await run(["chmod", "+x", t.dest]);
+		await copyFile(join(work, src), t.dest);
+		// A no-op on Windows, where the executable bit doesn't exist.
+		if (process.platform !== "win32") {
+			await chmod(t.dest, 0o755);
+		}
 		console.log(`  → ${t.dest}`);
 	}
 
-	await run(["rm", "-rf", work]);
+	await rm(work, { recursive: true, force: true });
 	console.log("ffmpeg sidecars ready.");
 }
 
