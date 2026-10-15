@@ -49,7 +49,7 @@
 		"copyright": "Copyright (c) 2026 Anthers, Inc.",
 		"category": "DeveloperTool",
 		"shortDescription": "Anthers \u2014 the creative garden, on your desktop",
-		"longDescription": "The desktop app for Anthers \u2014 the whole platform in a native window, for readers and creators alike: browse, read and watch, publish and manage a catalog and posts, and encode video natively with ffmpeg instead of tying up a browser tab. Keeps itself current: every release is signed and applied silently at restart."
+		"longDescription": "The desktop app for Anthers \u2014 the whole platform in a native window, for readers and creators alike: browse, read and watch, publish and manage a catalog and posts, and encode video natively with ffmpeg instead of tying up a browser tab. Keeps itself current: every release is signed and applied silently at restart.",
 		"licenseFile": "../LICENSE.md",
 		"linux": {
 			"deb": {
