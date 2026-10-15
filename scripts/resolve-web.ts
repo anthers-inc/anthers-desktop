@@ -10,7 +10,7 @@
 //   1. ANTHERS_WEB=/path/to/dist   — an explicit, already-built dist. Overrides everything.
 //   2. a sibling ../Anthers checkout — built on demand. The working setup for local dev.
 //   3. the pinned release asset     — downloaded, signature-verified. What CI and a clean
-//                                     machine use. Force with ANOTHERS_WEB_SOURCE=asset.
+//                                     machine use. Force with ANTHERS_WEB_SOURCE=asset.
 //
 // 🚨 Every pinned download is VERIFIED before it is installed, against the Ed25519
 // key pinned in `scripts/web-dist-signing.pub`, and fails closed: a release that
@@ -66,7 +66,7 @@ if (explicit) {
 
 // ── 2. sibling checkout ──────────────────────────────────────────────────────
 const siblingWeb = join(SIBLING, "apps", "web");
-// ANOTHERS_WEB_SOURCE=asset skips this checkout and the explicit path, so the pinned
+// ANTHERS_WEB_SOURCE=asset skips this checkout and the explicit path, so the pinned
 // asset path can be exercised on a machine where the sibling exists — how the pin is
 // proven without renaming directories around it.
 const assetOnly = process.env.ANTHERS_WEB_SOURCE === "asset";
@@ -87,7 +87,7 @@ if (!assetOnly && existsSync(siblingWeb)) {
 
 // ── 3. the pinned release asset ──────────────────────────────────────────────
 // (Reached directly, with no sibling and no explicit dist — or forced, with
-// ANOTHERS_WEB_SOURCE=asset.)
+// ANTHERS_WEB_SOURCE=asset.)
 if (!pinned) {
 	console.error(
 		"[web] No web build available, and no release pinned.\n" +
