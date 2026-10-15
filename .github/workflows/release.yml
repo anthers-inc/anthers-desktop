@@ -93,3 +93,15 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: --bundles ${{ matrix.bundles }}
+
+      # A dispatch run leaves nothing on the release channel (the tagName guard
+      # above), and tauri-action uploads artifacts only in release context — so
+      # the proof's bundles land here instead, as a human-downloadable build.
+      # Tag runs attach everything to the draft release and skip this.
+      - name: Attach the bundles as run artifacts (dispatch runs only)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundles-${{ matrix.os }}
+          path: src-tauri/target/release/bundle
+          if-no-files-found: error
