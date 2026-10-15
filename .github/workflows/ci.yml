@@ -26,6 +26,13 @@ jobs:
         with:
           components: clippy, rustfmt
 
+      # The Tauri shell compiles against the GTK/webkit stack on Linux — its webview
+      # sys crates fail pkg-config without the dev packages.
+      - name: Install the webview's Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
