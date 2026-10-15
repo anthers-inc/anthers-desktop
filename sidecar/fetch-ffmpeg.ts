@@ -19,14 +19,19 @@
  * that, you also lose libx264 and the whole feature with it.
  */
 
-const VERSION_PIN = "7.1"; // The ffmpeg release these URLs are expected to yield.
-
 interface Source {
 	/** Rust target triple — the suffix Tauri resolves a sidecar by. */
 	triple: string;
-	url: string;
-	/** Where the binaries sit inside the downloaded archive. */
+	/** Archive type of every file URL in this source. */
 	kind: "tar.xz" | "zip";
+	/**
+	 * One URL per shipped binary — usually the same archive twice, but macOS sources
+	 * are one binary per zip (osxexperts ships `ffmpeg` and `ffprobe` separately), and
+	 * the first arm64 attempt died precisely on assuming otherwise.
+	 */
+	files: Record<"ffmpeg" | "ffprobe", string>;
+	/** The ffmpeg major the URLs currently yield, for the fetch log only. */
+	version: string;
 }
 
 /**
@@ -34,32 +39,55 @@ interface Source {
  *
  * Linux uses johnvansickle rather than BtbN deliberately: both are GPL builds with
  * libx264, but johnvansickle's are roughly half the size (77 MB vs 139 MB per binary),
- * and these ship inside every installer twice over.
+ * and these ship inside every installer twice over. BtbN retired its macOS builds
+ * entirely, so darwin rides osxexperts, one binary per zip: its arm pair is ffmpeg 9,
+ * its intel pair 8.0. Versions therefore drift per platform — fine, because the encoder
+ * ladder the app ships is fixed in `encode.rs`, not chosen by the binary's version.
  */
 const SOURCES: Record<string, Source> = {
 	"linux-x64": {
 		triple: "x86_64-unknown-linux-gnu",
-		url: "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz",
+		version: "release-stream",
+		files: {
+			ffmpeg: "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz",
+			ffprobe: "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz",
+		},
 		kind: "tar.xz",
 	},
 	"linux-arm64": {
 		triple: "aarch64-unknown-linux-gnu",
-		url: "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz",
+		version: "release-stream",
+		files: {
+			ffmpeg: "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz",
+			ffprobe: "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz",
+		},
 		kind: "tar.xz",
 	},
 	"win32-x64": {
 		triple: "x86_64-pc-windows-msvc",
-		url: "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip",
+		version: "master-stream",
+		files: {
+			ffmpeg: "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip",
+			ffprobe: "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip",
+		},
 		kind: "zip",
 	},
 	"darwin-x64": {
 		triple: "x86_64-apple-darwin",
-		url: "https://evermeet.cx/ffmpeg/getrelease/zip",
+		version: "8.0",
+		files: {
+			ffmpeg: "https://www.osxexperts.net/ffmpeg80intel.zip",
+			ffprobe: "https://www.osxexperts.net/ffprobe80intel.zip",
+		},
 		kind: "zip",
 	},
 	"darwin-arm64": {
 		triple: "aarch64-apple-darwin",
-		url: "https://www.osxexperts.net/ffmpeg711arm.zip",
+		version: "9",
+		files: {
+			ffmpeg: "https://www.osxexperts.net/ffmpeg9arm.zip",
+			ffprobe: "https://www.osxexperts.net/ffprobe9arm.zip",
+		},
 		kind: "zip",
 	},
 };
@@ -121,33 +149,47 @@ async function main() {
 	await rm(work, { recursive: true, force: true });
 	await mkdir(work, { recursive: true });
 
-	console.log(`Fetching ffmpeg (${VERSION_PIN}-class GPL static) for ${source.triple}…`);
-	const archive = join(work, "archive");
-	await run(["curl", "-fsSL", "-o", archive, source.url]);
+	console.log(`Fetching GPL static ffmpeg ${source.version} for ${source.triple}…`);
 
-	// Extracted whole rather than with --strip-components, because the layouts differ
-	// per source (and change upstream); the Glob below locates the binaries wherever
-	// they land, which is one less thing to keep in sync. Zip archives ride `tar`,
-	// not `unzip`: `tar` is BSD's on both darwin and Windows runners and reads zip
-	// natively, while `unzip` is a GNU-side extra.
-	if (source.kind === "tar.xz") {
-		await run(["tar", "-xJf", archive, "-C", work]);
-	} else {
-		await run(["tar", "-xf", archive, "-C", work]);
+	// One archive fetch per unique URL: on macOS the two binaries come in two zips,
+	// on the other platforms both names resolve to the same archive.
+	const archives = new Map<string, string>(); // url → workdir holding it extracted
+	for (const t of targets) {
+		const url = source.files[t.name as keyof Source["files"]];
+		if (!url) throw new Error(`No source URL for ${t.name} (${source.triple}).`);
+		if (archives.has(url)) continue;
+		const dir = join(work, archives.size.toString());
+		archives.set(url, dir);
+		const archive = join(dir, "archive");
+		await mkdir(dir, { recursive: true });
+		await run(["curl", "-fsSL", "-o", archive, url]);
+
+		// Extracted whole rather than with --strip-components, because the layouts
+		// differ per source (and change upstream); the Glob below locates the binaries
+		// wherever they land, which is one less thing to keep in sync. Zip archives
+		// ride `tar`, not `unzip`: `tar` is BSD's on both darwin and Windows runners
+		// and reads zip natively, while `unzip` is a GNU-side extra.
+		if (source.kind === "tar.xz") {
+			await run(["tar", "-xJf", archive, "-C", dir]);
+		} else {
+			await run(["tar", "-xf", archive, "-C", dir]);
+		}
 	}
 
 	for (const t of targets) {
 		// Located wherever it landed in the extracted tree — upstream layouts differ
 		// and change; macOS's Apple-double `__MACOSX` metadata entries don't match.
+		const workdir = archives.get(source.files[t.name as keyof Source["files"]]);
+		if (!workdir) throw new Error(`No workdir for ${t.name} — internal fetch-state bug.`);
 		const glob = new Bun.Glob(`**/${t.name}${exeSuffix}`);
-		const src = glob.scanSync({ cwd: work, onlyFiles: true }).next().value;
+		const src = glob.scanSync({ cwd: workdir, onlyFiles: true }).next().value;
 		if (!src) {
 			throw new Error(
-				`${t.name} not found in the downloaded archive for ${source.triple}. ` +
-					`The upstream layout may have changed — check ${source.url}.`,
+				`${t.name} not found in its archive for ${source.triple}. ` +
+					`The upstream layout may have changed — check ${source.files[t.name as keyof Source["files"]]}.`,
 			);
 		}
-		await copyFile(join(work, src), t.dest);
+		await copyFile(join(workdir, src), t.dest);
 		// A no-op on Windows, where the executable bit doesn't exist.
 		if (process.platform !== "win32") {
 			await chmod(t.dest, 0o755);

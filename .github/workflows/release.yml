@@ -80,6 +80,8 @@ jobs:
           # first release.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # The action's own release creation and artifact upload.
+          GITHUB_TOKEN: ${{ github.token }}
         with:
           # A release only happens for a real `desktop-v*` tag push. A dispatch run
           # (`github.ref_name` would otherwise read `main` — and the first proof run
