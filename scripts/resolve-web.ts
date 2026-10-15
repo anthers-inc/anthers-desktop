@@ -94,7 +94,7 @@ if (!pinned) {
 			"      Do one of:\n" +
 			`        • clone the platform beside this repo:  git clone https://github.com/anthers-inc/anthers.git ${SIBLING}\n` +
 			"        • point at an existing build:           ANTHERS_WEB=/path/to/apps/web/dist\n" +
-			'        • pin a release in package.json:        "anthersWeb": "web-v<the web app’s calver version>"',
+			'        • pin a release in package.json:        "anthersWeb": "v<the web app's calver version>"',
 	);
 	process.exit(1);
 }
