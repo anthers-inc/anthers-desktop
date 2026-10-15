@@ -1,0 +1,89 @@
+# The installer + updater release workflow. Its life is separate from `ci.yml` by
+# design: CI is the deploy gate (since 2026-08-09 in the platform repo) and a code
+# check must never queue behind packaging failures or a macOS runner queue. Cutting
+# a release happens here, on an explicit `desktop-v*` tag; a workflow_dispatch run
+# builds every platform and attaches its bundles as workflow artifacts without
+# touching any release — the way the matrix gets proven before its first tag.
+#
+# Unsigned by intent at this stage: Windows shows a SmartScreen warning and
+# installs; the macOS artifacts are CI proof, not yet distributable (Gatekeeper),
+# and both become a matter of adding credentials, never wiring (see the README).
+name: release
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["desktop-v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            bundles: deb,rpm,appimage
+          - os: windows-latest
+            bundles: nsis,msi
+          - os: macos-latest
+            bundles: app,dmg
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install --frozen-lockfile
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install the webview's Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # The gitignored ~80 MB-per-binary sidecars, fetched per OS; a cache hit pays
+      # nothing and a miss downloads once. Keyed on runner OS + the fetch script —
+      # a source change is a new cache, not a stale one.
+      - uses: actions/cache@v4
+        with:
+          path: src-tauri/binaries
+          key: sidecars-${{ runner.os }}-${{ hashFiles('sidecar/fetch-ffmpeg.ts') }}
+          restore-keys: sidecars-${{ runner.os }}-
+      - name: Fetch the ffmpeg sidecars
+        run: bun run sidecar/fetch-ffmpeg.ts
+
+      # A clean checkout has no web-dist; the shell resolves the platform pin, which
+      # is itself the release's live exposure to the web-build signature gate.
+      - name: Resolve the pinned web build
+        run: bun run web
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          # The updater's minisign private half. With it, the bundler emits the
+          # signed updater artifacts and tauri-action generates latest.json from
+          # them; without it the release would ship installers but strand the
+          # update channel, which is why the key rides this workflow from its
+          # first release.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Anthers Desktop ${{ github.ref_name }}"
+          releaseBody: "The desktop Creator Studio. Linux distributions are the first distributable targets; Windows installers are unsigned (SmartScreen warns); the macOS artifacts are CI proof until signing credentials exist."
+          releaseDraft: true
+          prerelease: false
+          args: --bundles ${{ matrix.bundles }}

@@ -16,6 +16,8 @@ tauri = { version = "^2.0.0", features = [] }
 tauri-plugin-http = "^2.0.0"
 # Delivers the `anthers://auth/callback?code=…` handoff back from the system browser.
 tauri-plugin-deep-link = "^2.0.0"
+# The whole-app updater: checks the release channel, applies at restart.
+tauri-plugin-updater = "^2.0.0"
 # Opens the authorize page in the SYSTEM browser — the whole point of the handoff is
 # that sign-in does NOT happen inside this window.
 tauri-plugin-opener = "^2.0.0"

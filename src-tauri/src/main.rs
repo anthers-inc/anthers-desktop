@@ -35,6 +35,7 @@
 
 mod encode;
 mod token;
+mod updates;
 
 use std::sync::Mutex;
 
@@ -371,6 +372,8 @@ fn main() {
 		.plugin(tauri_plugin_dialog::init())
 		.plugin(tauri_plugin_opener::init())
 		.plugin(tauri_plugin_deep_link::init())
+		// The whole-app updater: release builds check the channel and apply at restart.
+		.plugin(tauri_plugin_updater::Builder::new().build())
 		.manage(store)
 		.manage(PendingVerifier::default())
 		.manage(PendingCode::default())
@@ -402,6 +405,17 @@ fn main() {
 					.collect();
 				handle_urls(&handle, &raws);
 			});
+
+			// Spawned so the check and download never block startup; a failure here is
+			// a log line, never a crash. The function itself no-ops on dev builds.
+			{
+				let handle = app.handle().clone();
+				tauri::async_runtime::spawn(async move {
+					if let Err(err) = updates::auto_update(&handle).await {
+						eprintln!("Updater check failed (not fatal): {err}");
+					}
+				});
+			}
 			Ok(())
 		})
 		.invoke_handler(tauri::generate_handler![
