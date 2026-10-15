@@ -23,9 +23,10 @@ source that works:
    keeps working across two repositories cheap: iterating on the web app and the shell
    together stays `build web → run desktop`, with no publish step in between.
 3. **The pinned release asset** — downloaded from the platform's releases. What CI and a
-   clean machine use. The pin is `anthersWeb` in `package.json`, naming a `web-v*`
-   release tag. `ANTHERS_WEB_SOURCE=asset` forces this source where a sibling checkout
-   also exists — which is how the pin itself is exercised.
+   clean machine use. The pin is `anthersWeb` in `package.json`, naming a promoted
+   platform release tag (`v2026.10.23`) — the build production is verified live on;
+   there is no separate web-release ceremony. `ANTHERS_WEB_SOURCE=asset` forces this
+   source where a sibling checkout also exists — which is how the pin itself is exercised.
 
 🚨 **Why a release asset and not a package on GitHub Packages**, which is the obvious
 choice and the wrong one: GitHub's documentation says *"You need an access token to
