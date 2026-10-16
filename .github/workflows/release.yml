@@ -80,10 +80,28 @@ jobs:
           # first release.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # The action's own release creation and artifact upload.
+          GITHUB_TOKEN: ${{ github.token }}
         with:
-          tagName: ${{ github.ref_name }}
+          # A release only happens for a real `desktop-v*` tag push. A dispatch run
+          # (`github.ref_name` would otherwise read `main` — and the first proof run
+          # created a draft release *named main* from it) leaves tagName empty, which
+          # makes tauri-action upload the bundles as workflow artifacts instead.
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
           releaseName: "Anthers Desktop ${{ github.ref_name }}"
           releaseBody: "The desktop Creator Studio. Linux distributions are the first distributable targets; Windows installers are unsigned (SmartScreen warns); the macOS artifacts are CI proof until signing credentials exist."
           releaseDraft: true
           prerelease: false
           args: --bundles ${{ matrix.bundles }}
+
+      # A dispatch run leaves nothing on the release channel (the tagName guard
+      # above), and tauri-action uploads artifacts only in release context — so
+      # the proof's bundles land here instead, as a human-downloadable build.
+      # Tag runs attach everything to the draft release and skip this.
+      - name: Attach the bundles as run artifacts (dispatch runs only)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundles-${{ matrix.os }}
+          path: src-tauri/target/release/bundle
+          if-no-files-found: error
