@@ -156,6 +156,15 @@ release — how the matrix is re-proven between tags. `macos-latest` builds the
 Apple-Silicon shell; an x64 macOS distribution would need its own runner job,
 added when signing does.
 
+An agent runs these same steps as one procedure: `/promote-desktop`
+(`~/.config/opencode/commands/promote-desktop.md`) audits the four version fields
+(`package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json` and the
+`Cargo.lock` copy), bumps them through a PR, cuts and pushes the tag, watches the
+workflow, verifies this draft mechanically in place of the Releases-page review,
+publishes, and reads `releases/latest/download/latest.json` back. Invoked only on
+an explicit instruction, since publishing is the moment the update channel moves;
+this section's text remains the human-eye version of the same steps.
+
 ### macOS signing + notarization
 
 Credentials live in a gitignored `.env` (see `.env.example`): `APPLE_SIGNING_IDENTITY`,
