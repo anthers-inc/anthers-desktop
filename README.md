@@ -82,9 +82,9 @@ pointer in this README outlived the vault reorganization that dissolved that pag
 
 `invoke` is unavailable to remote documents, so native capability would mean opening
 the IPC boundary to a page served over the internet. An XSS on the site would then
-reach filesystem and process spawn on every user's machine — unacceptable for the one
-app whose entire purpose is native capability. So the SPA is bundled, which is
-what makes the auth work below necessary.
+reach filesystem and process spawn on every user's machine — unacceptable for an app
+whose whole point is to be the full Anthers experience on the machine. So the SPA is
+bundled, which is what makes the auth work below necessary.
 
 ## Auth, in one paragraph
 
@@ -92,7 +92,9 @@ Serving from `tauri://localhost` means the `.anthers.org` session cookie is neve
 so the app carries an `Authorization: Bearer` token instead — the same opaque session
 row, in a different envelope. It's obtained by a **browser handoff**: the app opens the
 authorize page in the creator's *own* browser (no password is ever typed into this
-app), they confirm once, and a one-time code returns over the `anthers://` scheme.
+app), where sign-in is the platform's own ceremony — an emailed code or Bluesky OAuth,
+exactly as on the web, landing there whenever the browser holds no session — they
+confirm once, and a one-time code returns over the `anthers://` scheme.
 **PKCE** binds the two halves — the verifier never leaves this process, so another
 local app that hijacks the scheme and steals the code off the deep link cannot redeem
 it. The token is independently revocable from Settings → Devices on anthers.org.
