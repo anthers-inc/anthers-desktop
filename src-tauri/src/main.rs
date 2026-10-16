@@ -4,17 +4,20 @@
 
 //! Anthers — the desktop shell around the whole Anthers app.
 //!
-//! It bundles the SAME `apps/studio-web` build the browser Studio serves; this is a
-//! third consumer of `@anthers/web-shared`, not a fork. What the shell adds is the
-//! things a browser tab cannot do: a session that survives without cookies, and
-//! (next stage) native ffmpeg encoding that doesn't tie the creator to a tab.
+//! It bundles the SAME built web app the browser serves, so the whole platform is
+//! in the window — reading, watching and creating. This is a third consumer of
+//! `@anthers/web-shared`, not a fork. What the shell adds is the things a browser
+//! tab cannot do: a session that survives without cookies, a real window, native
+//! media capability for creators (the ffmpeg encoding below), and — planned — the
+//! user-side equivalent: locally-downloaded library content.
 //!
-//! ## Why the window is not just pointed at studio.anthers.org
+//! ## Why the window is not just pointed at anthers.org
 //!
 //! `invoke` is unavailable to remote documents, so native capability would mean
-//! opening the IPC boundary to a page served over the internet — an XSS on the Studio
-//! would then reach filesystem and process spawn on every creator's machine. The SPA
-//! is bundled instead, which costs the auth work below. See 42.06 § Desktop auth.
+//! opening the IPC boundary to a page served over the internet — an XSS on the site
+//! would then reach filesystem and process spawn on every user's machine. The SPA
+//! is bundled instead, which costs the auth work below. The README's auth section
+//! carries the whole design.
 //!
 //! ## Auth
 //!

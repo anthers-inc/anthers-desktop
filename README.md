@@ -13,6 +13,12 @@ The two lived in one repository until 2026-08-14, and separated because the tool
 have nothing in common: this one is cargo, a three-OS build matrix, code signing and
 installers, on a release cadence unrelated to the platform's.
 
+**It is not a creator's tool only — and was never meant to be.** Bundling the whole
+web app already puts reading, watching and playing in the window; the plan for the
+desktop is the full-spectrum replacement that implies, with desktop-improved surfaces
+on both sides: for creators, native encoding (below) and the upload pack; for users,
+locally-downloaded library content is the first planned addition.
+
 ## Getting the web app
 
 `./web-dist` is what Tauri bundles, and `scripts/resolve-web.ts` fills it from the first
@@ -69,8 +75,10 @@ Override either with `ANTHERS_API_BASE` at build time.
 The first build downloads ~150 MB of ffmpeg binaries; they are gitignored and cached
 after that.
 
-Architecture and the decisions behind it live in the wiki:
-**42.06 Creator Studio Architecture**, especially *§ Desktop auth*.
+The desktop shell's own architecture, the auth design and the decisions behind the
+window live here and on the wiki's codebase page (**80.00 The Codebase**) and the
+Anthers Desktop lane of the roadmap — the older `42.06 Creator Studio Architecture`
+pointer in this README outlived the vault reorganization that dissolved that page.
 
 ## Why the window isn't just pointed at anthers.org
 
