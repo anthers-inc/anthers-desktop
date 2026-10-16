@@ -37,18 +37,6 @@ jobs:
         with:
           workspaces: src-tauri
 
-      # tauri-build validates bundle.externalBin at compile time even for a plain
-      # cargo check, and the gitignored ~150 MB sidecar pair is absent in a clean
-      # checkout. Cache ahead of the fetch; the fetch is idempotent, so a cache hit
-      # pays nothing and a miss downloads once.
-      - uses: actions/cache@v4
-        with:
-          path: src-tauri/binaries
-          key: sidecars-${{ hashFiles('sidecar/fetch-ffmpeg.ts') }}
-          restore-keys: sidecars-
-      - name: Fetch the ffmpeg sidecars
-        run: bun run sidecar/fetch-ffmpeg.ts
-
       # The clean checkout has no web-dist (gitignored, resolved in), and the
       # config-path standing test asserts the conf's targets exist at the bases they
       # resolve from — so CI resolves the pin first. This step is also the pin

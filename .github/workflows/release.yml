@@ -55,17 +55,6 @@ jobs:
         with:
           workspaces: src-tauri
 
-      # The gitignored ~80 MB-per-binary sidecars, fetched per OS; a cache hit pays
-      # nothing and a miss downloads once. Keyed on runner OS + the fetch script —
-      # a source change is a new cache, not a stale one.
-      - uses: actions/cache@v4
-        with:
-          path: src-tauri/binaries
-          key: sidecars-${{ runner.os }}-${{ hashFiles('sidecar/fetch-ffmpeg.ts') }}
-          restore-keys: sidecars-${{ runner.os }}-
-      - name: Fetch the ffmpeg sidecars
-        run: bun run sidecar/fetch-ffmpeg.ts
-
       # A clean checkout has no web-dist; the shell resolves the platform pin, which
       # is itself the release's live exposure to the web-build signature gate.
       - name: Resolve the pinned web build
@@ -89,7 +78,7 @@ jobs:
           # makes tauri-action upload the bundles as workflow artifacts instead.
           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
           releaseName: "Anthers Desktop ${{ github.ref_name }}"
-          releaseBody: "The desktop Creator Studio. Linux distributions are the first distributable targets; Windows installers are unsigned (SmartScreen warns); the macOS artifacts are CI proof until signing credentials exist."
+          releaseBody: "The whole Anthers experience in a native window. Linux distributions are the first distributable targets; Windows installers are unsigned (SmartScreen warns); the macOS artifacts are CI proof until signing credentials exist."
           releaseDraft: true
           prerelease: false
           args: --bundles ${{ matrix.bundles }}
