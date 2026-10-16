@@ -4,8 +4,8 @@
 	Hardened-runtime entitlements for the notarized macOS build. Each of these is here
 	for a reason; do not add more to make an error go away without recording why.
 
-	- network.client       — the Studio talks to the Anthers API. Without it every
-	                         request fails once the hardened runtime is on.
+	- network.client       — the wrapped web app talks to the Anthers API. Without it
+	                         every request fails once the hardened runtime is on.
 	- allow-jit +
 	  allow-unsigned-
 	  executable-memory    — WKWebView JITs JavaScript. The hardened runtime blocks
@@ -13,10 +13,10 @@
 	                         webview (i.e. the entire app) down with it.
 
 	NOT included, deliberately:
-	- disable-library-validation — the ffmpeg sidecars are STATIC binaries that load
-	  no external dylibs, so they sign and run fine under library validation. If a
-	  future sidecar links shared libraries this is where that would have to change,
-	  and it should be a conscious decision rather than a copied-in default.
+	- disable-library-validation — no native sidecars are bundled, so nothing here
+	  loads external dylibs beyond the system webview stack. If the app ever bundles
+	  one that links shared libraries, this entitlement is where that would have to
+	  change, and it should be a conscious decision rather than a copied-in default.
 -->
 <plist version="1.0">
 <dict>

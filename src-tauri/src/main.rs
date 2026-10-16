@@ -7,9 +7,10 @@
 //! It bundles the SAME built web app the browser serves, so the whole platform is
 //! in the window — reading, watching and creating. This is a third consumer of
 //! `@anthers/web-shared`, not a fork. What the shell adds is the things a browser
-//! tab cannot do: a session that survives without cookies, a real window, native
-//! media capability for creators (the ffmpeg encoding below), and — planned — the
-//! user-side equivalent: locally-downloaded library content.
+//! tab cannot do: a session that survives without cookies, a real window, a
+//! custom-scheme deep link, and a silent whole-app updater. Everything else inside
+//! it is the web experience, unchanged — that one-to-one shape is the shell's
+//! contract, and `tauri.conf.json`'s `externalBin` must stay absent.
 //!
 //! ## Why the window is not just pointed at anthers.org
 //!
@@ -36,7 +37,6 @@
 //! `apiFetch()` in `@anthers/web-shared` already reads. `fetch` is routed through
 //! `tauri-plugin-http`, so requests leave from Rust and CORS never applies.
 
-mod encode;
 mod token;
 mod updates;
 
@@ -292,32 +292,6 @@ fn sign_out(store: tauri::State<'_, TokenStore>) {
 	store.clear();
 }
 
-// ─── Native encoding ─────────────────────────────────────────────────────────
-
-/// Encode a video into the variant ladder with the bundled ffmpeg. Runs on a blocking
-/// task: a long encode must not stall the IPC runtime that carries its own progress
-/// events.
-#[tauri::command]
-async fn encode_video(app: AppHandle, path: String) -> Result<encode::EncodeResult, String> {
-	encode::encode_ladder(app, path).await
-}
-
-/// Delete a finished encode's temp directory. Called after the variants are uploaded;
-/// failure is not worth surfacing, since the OS reclaims the temp dir anyway.
-#[tauri::command]
-fn cleanup_encode(work_dir: String) {
-	// Refuse anything that isn't one of our own encode folders — this deletes a tree,
-	// and a bad path from a compromised webview should not be able to aim it.
-	let path = std::path::PathBuf::from(&work_dir);
-	let is_ours = path
-		.file_name()
-		.and_then(|n| n.to_str())
-		.is_some_and(|n| n.starts_with("anthers-encode-"));
-	if is_ours && path.starts_with(std::env::temp_dir()) {
-		let _ = std::fs::remove_dir_all(path);
-	}
-}
-
 // ─── Entry ───────────────────────────────────────────────────────────────────
 
 /// Script evaluated before any app JS, defining the seam `@anthers/web-shared`'s
@@ -367,12 +341,6 @@ fn main() {
 			handle_urls(app, &argv);
 		}))
 		.plugin(tauri_plugin_http::init())
-		// Spawns the bundled ffmpeg/ffprobe sidecars.
-		.plugin(tauri_plugin_shell::init())
-		// Lets the webview read finished variants back for upload, and pick a source
-		// file by real path (no 300 MB in-memory ceiling).
-		.plugin(tauri_plugin_fs::init())
-		.plugin(tauri_plugin_dialog::init())
 		.plugin(tauri_plugin_opener::init())
 		.plugin(tauri_plugin_deep_link::init())
 		// The whole-app updater: release builds check the channel and apply at restart.
@@ -426,9 +394,7 @@ fn main() {
 			begin_sign_in,
 			complete_sign_in,
 			take_pending_code,
-			sign_out,
-			encode_video,
-			cleanup_encode
+			sign_out
 		])
 		.run(tauri::generate_context!())
 		.expect("error while running Anthers");
@@ -497,6 +463,33 @@ mod tests {
 			assert!(
 				cmd.starts_with("bun "),
 				"before-command must run under bun, got {cmd}"
+			);
+		}
+	}
+
+	#[test]
+	fn the_shell_carries_no_native_sidecars() {
+		// The shell's contract is the one-to-one web experience: it bundles the web
+		// app and adds only the session handoff, the deep link, the keychain token
+		// and the updater. tauri-build validates `bundle.externalBin` at compile
+		// time, so a sidecar sneaking back into the config fails here before CI —
+		// and if native capability returns for a desktop feature, removing this
+		// assertion belongs in that decision's diff, beside the capability itself.
+		let conf_text =
+			std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/tauri.conf.json"))
+				.unwrap();
+		let conf: serde_json::Value = serde_json::from_str(&conf_text).unwrap();
+		assert!(
+			conf["bundle"]["externalBin"].is_null(),
+			"the wrap-only shell bundles no external binaries"
+		);
+		for cmd in [
+			conf["build"]["beforeDevCommand"].as_str().unwrap(),
+			conf["build"]["beforeBuildCommand"].as_str().unwrap(),
+		] {
+			assert!(
+				!cmd.contains("sidecar") && !cmd.contains("fetch-ffmpeg"),
+				"before-commands resolve only the web app, got {cmd}"
 			);
 		}
 	}

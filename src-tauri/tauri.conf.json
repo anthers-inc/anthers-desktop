@@ -4,10 +4,10 @@
 	"version": "0.1.0",
 	"identifier": "org.anthers.desktop",
 	"build": {
-		"beforeDevCommand": "bun run sidecar/fetch-ffmpeg.ts && bun run scripts/resolve-web.ts",
+		"beforeDevCommand": "bun run scripts/resolve-web.ts",
 		"devUrl": "http://localhost:3000",
 		"frontendDist": "../web-dist",
-		"beforeBuildCommand": "bun run sidecar/fetch-ffmpeg.ts && bun run scripts/resolve-web.ts"
+		"beforeBuildCommand": "bun run scripts/resolve-web.ts"
 	},
 	"app": {
 		"windows": [
@@ -49,7 +49,7 @@
 		"copyright": "Copyright (c) 2026 Anthers, Inc.",
 		"category": "DeveloperTool",
 		"shortDescription": "Anthers \u2014 the creative garden, on your desktop",
-		"longDescription": "The desktop app for Anthers \u2014 the whole platform in a native window, for readers and creators alike: browse, read and watch, publish and manage a catalog and posts, and encode video natively with ffmpeg instead of tying up a browser tab. Keeps itself current: every release is signed and applied silently at restart.",
+		"longDescription": "The desktop app for Anthers \u2014 the whole platform in a native window, for readers and creators alike: browse, read, watch and play, publish and manage a catalog and posts. It is the Anthers experience you know from the web, not a separate tool. Keeps itself current: every release is signed and applied silently at restart.",
 		"licenseFile": "../LICENSE.md",
 		"linux": {
 			"deb": {
@@ -63,7 +63,6 @@
 			"../icons/icon.icns",
 			"../icons/icon.ico"
 		],
-		"externalBin": ["binaries/anthers-ffmpeg", "binaries/anthers-ffprobe"],
 		"macOS": {
 			"entitlements": "entitlements.plist",
 			"minimumSystemVersion": "10.15"

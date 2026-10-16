@@ -5,9 +5,9 @@ platform in a native window.
 
 **This repository is the shell, and there is no UI in it.** The thing inside the window
 is the platform's web app, bundled whole; what the shell adds is everything a browser
-tab cannot do — a session that survives without cookies, native ffmpeg encoding that
-doesn't tie a creator to a tab for the duration of an encode, a custom-scheme deep link,
-and a real application window.
+tab cannot do — a session that survives without cookies, a custom-scheme deep link, a
+silent whole-app updater, and a real application window. Everything else inside it is
+the web experience, unchanged: the one-to-one shape is the shell's contract.
 
 The two lived in one repository until 2026-08-14, and separated because the toolchains
 have nothing in common: this one is cargo, a three-OS build matrix, code signing and
@@ -16,8 +16,9 @@ installers, on a release cadence unrelated to the platform's.
 **It is not a creator's tool only — and was never meant to be.** Bundling the whole
 web app already puts reading, watching and playing in the window; the plan for the
 desktop is the full-spectrum replacement that implies, with desktop-improved surfaces
-on both sides: for creators, native encoding (below) and the upload pack; for users,
-locally-downloaded library content is the first planned addition.
+on both sides when they are: for creators, the upload pack — which may bring native
+media handling back with it, built as a decision rather than bundled on spec; for
+users, locally-downloaded Library content is the first planned addition.
 
 ## Getting the web app
 
@@ -57,7 +58,7 @@ here — a single active key; the verifier accepts nothing the rotated key did n
 ```sh
 git clone https://github.com/anthers-inc/anthers.git ../Anthers   # source 2, the easy path
 bun install
-bun run dev      # resolve the web app, fetch ffmpeg, open the window
+bun run dev      # resolve the web app, open the window
 ```
 
 Point it at a running local API with the platform's `make dev` in another terminal.
@@ -71,9 +72,6 @@ Point it at a running local API with the platform's `make dev` in another termin
 
 Debug builds point at `http://localhost:8000`; release builds at `https://anthers.org`.
 Override either with `ANTHERS_API_BASE` at build time.
-
-The first build downloads ~150 MB of ffmpeg binaries; they are gitignored and cached
-after that.
 
 The desktop shell's own architecture, the auth design and the decisions behind the
 window live here and on the wiki's codebase page (**80.00 The Codebase**) and the
@@ -173,15 +171,13 @@ Two things in that flow are non-obvious, both learned from `~/Lily`:
    Left set, Tauri notarizes inline — wasting a round trip to Apple on a binary that is
    about to be replaced by the re-sign.
 
-Anthers Desktop adds one wrinkle Lily doesn't have: the **ffmpeg sidecars are separate
-executables inside the bundle**, so the re-sign walks everything in `Contents/MacOS/`
-rather than just the main binary, and signs the `.app` last — a bundle signature seals
-whatever it contains at that moment.
+A bundle signature seals whatever `Contents/MacOS/` holds at that moment, so the
+re-sign walks every executable there and signs the `.app` last.
 
 `entitlements.plist` is deliberately minimal: network client (the API) plus JIT and
 unsigned-executable-memory (WKWebView JITs JavaScript, and the hardened runtime would
 otherwise take the whole webview down). Library validation is intentionally left ON —
-the ffmpeg sidecars are static and load no external dylibs.
+the bundle carries no native binaries that load external dylibs.
 
 ## The updater
 
@@ -214,7 +210,6 @@ src-tauri/
 icons/             Packaging icons, cut by `bunx tauri icon` from the platform's
                    packages/brand/logo/preps/anthersthumb_1x1_light.png
 scripts/           resolve-web.ts — puts a built web app at ./web-dist
-sidecar/           Build-time fetch of the bundled ffmpeg/ffprobe
 web-dist/          The web app (gitignored, resolved in — never committed)
 ```
 
@@ -230,46 +225,6 @@ The frontend is not here: `frontendDist` points at `../web-dist`, which
 > after the 2026-08-14 split (`licenseFile` still pointed three levels up into the
 > monorepo) and neither showed up in `cargo check`.
 
-## Native encoding
-
-`bun run dev` / `bun run build` fetch static **ffmpeg + ffprobe** into
-`src-tauri/binaries/` (gitignored, ~153 MB for the pair on Linux) and Tauri bundles
-them as sidecars. `sidecar/fetch-ffmpeg.ts` is idempotent, so only the first build pays
-for the download.
-
-> [!warning] The sidecars are named `anthers-ffmpeg` / `anthers-ffprobe`, not `ffmpeg`
-> Tauri installs Linux sidecars into **`/usr/bin` under their plain name**. Shipping one
-> called `ffmpeg` makes the `.deb`/`.rpm` collide with the distro's own ffmpeg package,
-> and dpkg refuses the install outright: *"trying to overwrite '/usr/bin/ffmpeg', which
-> is also in package ffmpeg"*. Anyone who already has ffmpeg — a good chunk of the
-> creators this app is for — simply couldn't install it. The namespaced names are the
-> fix; keep them in sync across `fetch-ffmpeg.ts`, `externalBin`, and the
-> `.sidecar("…")` lookups in `encode.rs`.
-
-Encoding produces the **same ladder as the browser encoder** — same rungs, bitrates,
-6-second keyframe interval and x264 settings — because the server's `package-video` job
-remuxes the variants into HLS with `-c copy`. If the two encoders drift, the same source
-yields differently-segmented ladders depending on where it was encoded, so the args live
-in one visible block in `src/encode.rs` rather than being assembled cleverly.
-
-What the native path removes, relative to the browser: `ffmpeg.wasm` is single-threaded
-per rung and capped at a 300 MB source, and the creator is tied to the tab for the whole
-encode. Native x264 threads across every core (~900% CPU observed), reads from disk, and
-the app is a window you can leave alone.
-
-The source is picked by **native dialog**, not `<input type=file>` — a webview `File` has
-no path, and the path is the point: ffmpeg reads the source straight off disk, so a
-multi-gigabyte file is never held in memory during the encode. The *upload* still reads
-bytes into memory, same as the browser path; that ceiling is now the upload, not the
-encode, and lifting it means moving the upload into Rust.
-
 ## Licensing note
 
 Anthers is Apache-2.0 and `bundle.licenseFile` points at the repo `LICENSE.md`.
-
-The bundled ffmpeg builds are **GPL**, because H.264 encoding needs libx264 and that is
-what makes a build GPL rather than LGPL. Apache-2.0 is compatible with GPL-3.0, and ffmpeg
-ships here as a **separate executable invoked as a subprocess**, not linked into our
-binary. The obligation is to pass the license along and say where the corresponding
-source is — see `sidecar/THIRD-PARTY.md`. Swapping to an LGPL build to avoid that would
-also drop libx264, and with it the feature.
