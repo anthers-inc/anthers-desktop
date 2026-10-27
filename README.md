@@ -91,9 +91,10 @@ bundled, which is what makes the auth work below necessary.
 Serving from `tauri://localhost` means the `.anthers.org` session cookie is never sent,
 so the app carries an `Authorization: Bearer` token instead — the same opaque session
 row, in a different envelope. The default sign-in happens **inside the app**: the person
-types their email address (or an Anthers handle) and the code their mailbox receives —
-the same emailed-code ceremony the site's own login runs, issued and spent by
-`/desktop/email/start` and `/desktop/email/verify`. The **browser handoff** stays for
+types the handle or address on their identity and the password they chose for it, which
+`/desktop/password` spends in one request and turns into the same authorization step the
+browser path uses. That is the site's own login door, and the password is never stored —
+the session is. The **browser handoff** stays for
 Bluesky, whose OAuth cannot run in the webview: the app opens the authorize page in the
 creator's *own* browser, they confirm once, and a one-time code returns over the
 `anthers://` scheme. **PKCE** binds both methods' halves — the verifier never leaves
