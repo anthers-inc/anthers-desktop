@@ -23,15 +23,12 @@
 //! ## Auth
 //!
 //! Serving from `tauri://localhost` means no session cookie is ever sent, so the app
-//! carries an `Authorization: Bearer` token instead. The DEFAULT method signs in inside
-//! the app: the person types their email address or Anthers handle, receives the emailed
-//! code they would get on the site, and spends it here — `/desktop/email/start` and
-//! `/desktop/email/verify`, which land in the same authorization step the browser path
-//! uses. The SYSTEM-browser handoff stays for Bluesky, whose OAuth cannot complete
-//! inside this webview: the app opens the authorize page there, the person confirms, and
-//! a one-time code comes back over the `anthers://` scheme. PKCE binds both methods' two
-//! halves — the verifier never leaves this process, so another local app that hijacks
-//! the scheme and steals a callback code cannot redeem it.
+//! carries an `Authorization: Bearer` token instead. Signing in happens in the person's
+//! browser, at whichever server holds their identity: the app enrols, opens the authorize
+//! page in the system browser, the person confirms there, and a one-time code comes back
+//! over the `anthers://` scheme. PKCE binds the two halves — the verifier never leaves
+//! this process, so another local app that hijacks the scheme and steals a callback code
+//! cannot redeem it.
 //!
 //! ## How the webview learns any of this
 //!
@@ -87,9 +84,8 @@ fn web_base_url() -> String {
 }
 
 /// The PKCE verifier for the enrolment currently in flight. Never leaves this process
-/// — that is precisely what makes a stolen callback code useless. Both sign-in methods
-/// (the in-app emailed code and the browser handoff) park their verifier here; one is
-/// in flight at a time, and a second method's start simply replaces it.
+/// — that is precisely what makes a stolen callback code useless. One sign-in is in
+/// flight at a time, and starting another simply replaces it.
 #[derive(Default)]
 struct PendingVerifier(Mutex<Option<String>>);
 
@@ -196,9 +192,7 @@ fn session_state(store: tauri::State<'_, TokenStore>) -> SessionState {
 }
 
 /// Open an enrolment: mint a PKCE verifier and register its challenge with the API.
-/// Shared by both sign-in methods — the browser handoff and the in-app emailed code —
-/// which is why the opener is not in here. Returns the challenge; the verifier stays
-/// in `pending`.
+/// Returns the challenge; the verifier stays in `pending`.
 async fn enroll(pending: &PendingVerifier, label: &str) -> Result<String, String> {
 	let verifier = random_hex();
 	let challenge = sha256_hex(&verifier);
@@ -226,8 +220,7 @@ async fn enroll(pending: &PendingVerifier, label: &str) -> Result<String, String
 }
 
 /// Begin the browser handoff: enrol, then open the authorize page in the system
-/// browser. (The in-app method enrols through `start_email_sign_in` and keeps the
-/// browser closed.)
+/// browser.
 ///
 /// Returns the URL that was opened so the UI can offer it as copyable text — on a
 /// machine with no default browser handler, "click here" is otherwise a dead end.
@@ -245,112 +238,8 @@ async fn begin_sign_in(
 	Ok(url)
 }
 
-/// Begin the in-app emailed-code method: enrol the way the handoff does, and open no
-/// browser. The flow continues with `send_email_sign_in_code` in this window.
-#[tauri::command]
-async fn start_email_sign_in(
-	pending: tauri::State<'_, PendingVerifier>,
-	label: String,
-) -> Result<(), String> {
-	enroll(&pending, &label).await?;
-	Ok(())
-}
-
-/// The verifier of the enrolment in flight and its challenge — for a code request,
-/// which must not consume the verifier: the redemption still needs it.
-fn in_flight(pending: &PendingVerifier) -> Result<(String, String), String> {
-	let verifier = pending
-		.0
-		.lock()
-		.ok()
-		.and_then(|slot| slot.clone())
-		.ok_or("This sign-in didn't start here. Try signing in again.")?;
-	let challenge = sha256_hex(&verifier);
-	Ok((verifier, challenge))
-}
-
-/// Forward the contact verbatim into the enrolment body. The shape ({email} or
-/// {handle}) is the API's to validate; the shell never interprets it.
-fn contact_body(mut body: serde_json::Value, contact: &serde_json::Value) -> serde_json::Value {
-	if let (Some(body_obj), Some(contact_obj)) = (body.as_object_mut(), contact.as_object()) {
-		for (key, value) in contact_obj {
-			body_obj.insert(key.clone(), value.clone());
-		}
-	}
-	body
-}
-
-/// The server's own error line when it sent one, else the fallback. The emailed-code
-/// verify route speaks `/signin/verify`'s refusal voices — wrong code, suspended
-/// account, no account at that address — and each is better surfaced than wrapped.
-async fn server_message(res: tauri_plugin_http::reqwest::Response, fallback: &str) -> String {
-	let text = res.text().await.unwrap_or_default();
-	serde_json::from_str::<serde_json::Value>(&text)
-		.ok()
-		.and_then(|body| {
-			body.get("error")
-				.and_then(|e| e.as_str())
-				.map(str::to_string)
-		})
-		.unwrap_or_else(|| fallback.to_string())
-}
-
-/// Ask the API to email a sign-in code for this contact. `contact` is `{email: …}` or
-/// `{handle: …}`, forwarded untouched.
-#[tauri::command]
-async fn send_email_sign_in_code(
-	pending: tauri::State<'_, PendingVerifier>,
-	contact: serde_json::Value,
-) -> Result<(), String> {
-	let (_, challenge) = in_flight(&pending)?;
-
-	let base = api_base_url();
-	let body = contact_body(serde_json::json!({ "challenge": challenge }), &contact);
-	let res = post_json(&format!("{base}/api/auth/desktop/email/start"), &body).await?;
-	if !res.status().is_success() {
-		let message = server_message(res, "Anthers didn't send the code. Try again.").await;
-		return Err(message);
-	}
-	Ok(())
-}
-
-/// Spend the emailed code inside the app: verify it against the enrolment in flight,
-/// then redeem the result the same way the browser handoff spends its callback.
-#[tauri::command]
-async fn verify_email_sign_in_code(
-	pending: tauri::State<'_, PendingVerifier>,
-	store: tauri::State<'_, TokenStore>,
-	contact: serde_json::Value,
-	code: String,
-) -> Result<SignInResult, String> {
-	let (_, challenge) = in_flight(&pending)?;
-
-	let base = api_base_url();
-	let body = contact_body(serde_json::json!({ "challenge": challenge }), &contact);
-	let body = contact_body(body, &serde_json::json!({ "code": code }));
-	let res = post_json(&format!("{base}/api/auth/desktop/email/verify"), &body).await?;
-	if !res.status().is_success() {
-		let message = server_message(res, "That sign-in didn't go through. Try again.").await;
-		return Err(message);
-	}
-
-	let text = res
-		.text()
-		.await
-		.map_err(|e| format!("Unexpected reply from Anthers: {e}"))?;
-	let parsed: serde_json::Value =
-		serde_json::from_str(&text).map_err(|e| format!("Unexpected reply from Anthers: {e}"))?;
-	let code = parsed
-		.get("code")
-		.and_then(|c| c.as_str())
-		.ok_or("Anthers did not return a sign-in code.")?;
-
-	redeem_and_store(&pending, &store, code.to_string()).await
-}
-
-/// Redeem a code for the session token, and persist it — the shared tail of both
-/// sign-in methods. Consumes the enrolment's verifier: a code is single-use, and so
-/// is the enrolment behind it.
+/// Redeem a code for the session token, and persist it. Consumes the enrolment's
+/// verifier: a code is single-use, and so is the enrolment behind it.
 async fn redeem_and_store(
 	pending: &PendingVerifier,
 	store: &TokenStore,
@@ -522,9 +411,6 @@ fn main() {
 		.invoke_handler(tauri::generate_handler![
 			session_state,
 			begin_sign_in,
-			start_email_sign_in,
-			send_email_sign_in_code,
-			verify_email_sign_in_code,
 			complete_sign_in,
 			take_pending_code,
 			sign_out

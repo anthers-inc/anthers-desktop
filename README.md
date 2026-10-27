@@ -90,16 +90,14 @@ bundled, which is what makes the auth work below necessary.
 
 Serving from `tauri://localhost` means the `.anthers.org` session cookie is never sent,
 so the app carries an `Authorization: Bearer` token instead — the same opaque session
-row, in a different envelope. The default sign-in happens **inside the app**: the person
-types their email address (or an Anthers handle) and the code their mailbox receives —
-the same emailed-code ceremony the site's own login runs, issued and spent by
-`/desktop/email/start` and `/desktop/email/verify`. The **browser handoff** stays for
-Bluesky, whose OAuth cannot run in the webview: the app opens the authorize page in the
-creator's *own* browser, they confirm once, and a one-time code returns over the
-`anthers://` scheme. **PKCE** binds both methods' halves — the verifier never leaves
-this process, so another local app that hijacks the scheme and steals a callback code
-cannot redeem it. The token is independently revocable from Settings → Devices on
-anthers.org.
+row, in a different envelope. Signing in happens in **the person's own browser**, at
+whichever server holds their identity, because that server is the only party an OAuth
+grant may be given by and a password typed into this window would be a second host
+asking for a credential it is not the authority on. The app enrols, opens the authorize
+page in the system browser, the person confirms once, and a one-time code returns over
+the `anthers://` scheme. **PKCE** binds the two halves — the verifier never leaves this
+process, so another local app that hijacks the scheme and steals a callback code cannot
+redeem it. The token is independently revocable from Settings → Devices on anthers.org.
 
 The webview learns all of this from an `initialization_script` that defines
 `globalThis.__ANTHERS_DESKTOP__` before any app JS — the seam `apiFetch()` in
