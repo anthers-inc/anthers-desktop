@@ -130,37 +130,69 @@ Output lands in `src-tauri/target/release/bundle/`.
 |---|---|---|
 | Linux | `.deb`, `.rpm`, `.AppImage` | no signing |
 | Windows | `.msi`, `.exe` (NSIS) | unsigned; SmartScreen will warn until we buy a cert |
-| macOS | `.app`, `.dmg` | signed + notarized, see below |
+| macOS | `.app`, `.dmg` | CI proof, not distributable, until signing credentials land (below) |
 
 A release also carries the updater artifacts (signed update bundles and `.sig`
 files) from which the workflow rewrites `latest.json` for the update channel above.
 
+### Versions
+
+The shell's version is **calver, `YYYY.M.N`**, the same scheme as the platform and
+numbered on its own line: the first release of a month is `.0`, each further release
+that month counts up, and a new month resets it. `2026.10.0` is October's first shell
+release whatever the platform is calling itself that week.
+
+Calver rather than semver is a settled decision, not a default (2026-10-01, recorded in
+the wiki's release-versioning page). The updater asks one question — is this newer than
+what I run — and a date answers it for the person reading a release page and for the
+installer doing the comparison. `YYYY.M.N` is valid semver, so the bundler and the
+updater parse it without a translation layer, and the numbering only ever moves
+forward, so a change of scheme is never a downgrade trap.
+
+The version lives in four places and they are moved together or not at all:
+
+```
+bun run scripts/promote-version.ts            # computes the next calver, writes all four
+bun run scripts/promote-version.ts --check    # what CI runs: shape and agreement, no writes
+```
+
+`package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json` and the
+`anthers-desktop` entry in `src-tauri/Cargo.lock`. Four hand-edited numbers is four
+chances to disagree, and a disagreement ships silently — every tool reads its own copy
+and the build succeeds against whichever one it happened to find. The DMG filename, and
+therefore the notarize step that will look for it, is derived from `Cargo.toml`.
+
 ### Cutting a release
 
 ```
-git tag desktop-vX.Y.Z && git push origin desktop-vX.Y.Z
+bun run scripts/promote-version.ts        # bump the four fields, commit them through a PR
+git tag v2026.10.0 && git push origin v2026.10.0
 ```
 
-The three version fields in `Cargo.toml`, `tauri.conf.json` and `package.json` are
-kept in lockstep by hand first, since the DMG filename — and therefore the notarize
-step that looks for it — is derived from `Cargo.toml`.
+The tag is `v<version>`, the platform's shape on the shell's own line. The `release`
+workflow then builds the matrix and opens a **draft** release named
+`Anthers Desktop <version>`, carrying every bundle, the updater's signed artifacts and
+`latest.json`, with the mechanical changelist as its body —
+`scripts/release-notes.sh` writes `## What shipped in <version>` and one line per
+squash commit, the same audit-trail shape the platform publishes and never edits.
 
-The `release` workflow then builds the matrix and opens a **draft** release carrying
-every bundle, the updater's signed artifacts, and `latest.json`; the artifact list
-gets a review before publishing from the Releases page. Tag names stay
-`desktop-vX.Y.Z`, distinct from the platform's tags. A `workflow_dispatch` run of
-the workflow builds and uploads bundles as workflow artifacts without touching a
-release — how the matrix is re-proven between tags. `macos-latest` builds the
-Apple-Silicon shell; an x64 macOS distribution would need its own runner job,
-added when signing does.
+**Publishing the draft is the release.** Until then the update channel has not moved:
+`releases/latest/download/latest.json` still serves the previous version, and every
+installed shell keeps updating from it. Publishing fixes forward — a bad publish is
+corrected by the next release, never by withdrawing what installed machines already
+update from.
+
+A `workflow_dispatch` run of the workflow builds and uploads bundles as workflow
+artifacts without touching a release — how the matrix is re-proven between tags.
+`macos-latest` builds the Apple-Silicon shell; an x64 macOS distribution would need its
+own runner job, added when signing does.
 
 An agent runs these same steps as one procedure: `/promote-desktop`
-(`~/.config/opencode/commands/promote-desktop.md`) audits the four version fields
-(`package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json` and the
-`Cargo.lock` copy), bumps them through a PR, cuts and pushes the tag, watches the
-workflow, verifies this draft mechanically in place of the Releases-page review,
-publishes, and reads `releases/latest/download/latest.json` back. Invoked only on
-an explicit instruction, since publishing is the moment the update channel moves;
+(`~/.config/opencode/commands/promote-desktop.md`) audits the four version fields,
+computes and bumps them through a PR, cuts and pushes the tag, watches the workflow,
+verifies the draft mechanically in place of the Releases-page review, publishes, and
+reads `releases/latest/download/latest.json` back. Invoked only on an explicit
+instruction, since publishing is the moment the update channel moves;
 this section's text remains the human-eye version of the same steps.
 
 ### macOS signing + notarization
@@ -193,7 +225,7 @@ the bundle carries no native binaries that load external dylibs.
 ## The updater
 
 A release build checks its update channel once at startup (`src/updates.rs`), and if a
-newer `desktop-v*` release is published it silently downloads that release's update
+newer release is published it silently downloads that release's update
 artifact, verifies it against `plugins.updater.pubkey` in `tauri.conf.json`, and
 applies it at exit — the next launch is the new version. No prompt and no in-app
 surface, per the freshness decision this whole mechanism is; an unreachable channel

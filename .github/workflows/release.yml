@@ -1,8 +1,9 @@
 # The installer + updater release workflow. Its life is separate from `ci.yml` by
 # design: CI is the deploy gate (since 2026-08-09 in the platform repo) and a code
 # check must never queue behind packaging failures or a macOS runner queue. Cutting
-# a release happens here, on an explicit `desktop-v*` tag; a workflow_dispatch run
-# builds every platform and attaches its bundles as workflow artifacts without
+# a release happens here, on an explicit `v<calver>` tag — the same shape as the
+# platform repository's tags, numbered on the shell's own line; a workflow_dispatch
+# run builds every platform and attaches its bundles as workflow artifacts without
 # touching any release — the way the matrix gets proven before its first tag.
 #
 # Unsigned by intent at this stage: Windows shows a SmartScreen warning and
@@ -13,7 +14,7 @@ name: release
 on:
   workflow_dispatch:
   push:
-    tags: ["desktop-v*"]
+    tags: ["v*"]
 
 permissions:
   contents: write
@@ -37,7 +38,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:
+      # Full history and tags: the changelist is a diff against the previous calver
+      # tag, and a shallow clone has neither the tag nor the commits behind it.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
 
@@ -60,6 +65,15 @@ jobs:
       - name: Resolve the pinned web build
         run: bun run web
 
+      # The release's name and its changelist both read the version the four fields
+      # carry rather than the tag's own text, so a tag and a version that disagree
+      # cannot name the release one number and the bundles another.
+      - name: Read the version
+        id: version
+        run: |
+          version="$(grep -m1 '"version"' package.json | sed -E 's/.*"version": *"([^"]+)".*/\1/')"
+          echo "version=${version}" >>"$GITHUB_OUTPUT"
+
       - uses: tauri-apps/tauri-action@v0
         env:
           # The updater's minisign private half. With it, the bundler emits the
@@ -72,16 +86,27 @@ jobs:
           # The action's own release creation and artifact upload.
           GITHUB_TOKEN: ${{ github.token }}
         with:
-          # A release only happens for a real `desktop-v*` tag push. A dispatch run
+          # A release only happens for a real tag push. A dispatch run
           # (`github.ref_name` would otherwise read `main` — and the first proof run
           # created a draft release *named main* from it) leaves tagName empty, which
           # makes tauri-action upload the bundles as workflow artifacts instead.
           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
-          releaseName: "Anthers Desktop ${{ github.ref_name }}"
-          releaseBody: "The whole Anthers experience in a native window. Linux distributions are the first distributable targets; Windows installers are unsigned (SmartScreen warns); the macOS artifacts are CI proof until signing credentials exist."
+          releaseName: "Anthers Desktop ${{ steps.version.outputs.version }}"
+          # The body is not the action's business: `scripts/release-notes.sh` writes the
+          # mechanical changelist below, once the release it edits exists.
+          releaseBody: ""
           releaseDraft: true
           prerelease: false
           args: --bundles ${{ matrix.bundles }}
+
+      # One writer, not three: the matrix races on a single release, and three
+      # identical edits would still be three concurrent writers. Linux runs first in
+      # practice and its leg owns the body.
+      - name: Write the release notes
+        if: startsWith(github.ref, 'refs/tags/') && matrix.os == 'ubuntu-latest'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/release-notes.sh
 
       # A dispatch run leaves nothing on the release channel (the tagName guard
       # above), and tauri-action uploads artifacts only in release context — so

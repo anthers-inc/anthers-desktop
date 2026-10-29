@@ -1,5 +1,6 @@
 # The shell's one gate: the pinned web build resolves and verifies, then the Rust
-# crate checks out of fmt/clippy and passes its first standing tests. The release
+# crate checks out of fmt/clippy and passes its first standing tests, and the scripts
+# pass their own suite and hold the four version fields together. The release
 # workflow's installers never belong here — packaging failures must not block a code
 # check, whatever cadence they end up on.
 name: ci
@@ -56,3 +57,12 @@ jobs:
       - name: Test
         run: cargo test
         working-directory: src-tauri
+
+      # The scripts' suite and the version invariant. `--check` is what refuses a
+      # release whose four fields disagree, which is the failure a green build would
+      # otherwise hide: each tool reads its own copy and none of them compares.
+      - name: Test the shell's scripts
+        run: bun test
+
+      - name: Hold the four version fields together
+        run: bun run scripts/promote-version.ts --check
