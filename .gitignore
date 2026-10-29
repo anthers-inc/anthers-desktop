@@ -7,3 +7,7 @@ node_modules/
 # Written by scripts/release-notes.sh; the release is their home, not the tree.
 /release-notes-raw.md
 /release-body.md
+
+# Apple signing and notarization credentials, sourced by `make build-macos` and
+# `make notarize`. `.env.example` is the committed template.
+/.env
