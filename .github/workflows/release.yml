@@ -67,9 +67,12 @@ jobs:
 
       # The release's name and its changelist both read the version the four fields
       # carry rather than the tag's own text, so a tag and a version that disagree
-      # cannot name the release one number and the bundles another.
+      # cannot name the release one number and the bundles another. 🚨 `shell: bash`
+      # is load-bearing: the Windows runner's default is PowerShell, where
+      # `$GITHUB_OUTPUT` is not a variable and the step fails before the build starts.
       - name: Read the version
         id: version
+        shell: bash
         run: |
           version="$(grep -m1 '"version"' package.json | sed -E 's/.*"version": *"([^"]+)".*/\1/')"
           echo "version=${version}" >>"$GITHUB_OUTPUT"
@@ -106,7 +109,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/') && matrix.os == 'ubuntu-latest'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/release-notes.sh
+        run: bash scripts/release-notes.sh
 
       # A dispatch run leaves nothing on the release channel (the tagName guard
       # above), and tauri-action uploads artifacts only in release context — so
