@@ -31,8 +31,13 @@ jobs:
         include:
           - os: ubuntu-latest
             bundles: deb,rpm,appimage
+          # NSIS only, and the MSI is deliberately absent: WiX caps an MSI's major
+          # version at 255 while calver's major is the year, so `msi` fails the Windows
+          # leg outright ("app version major number cannot be greater than 255"). Keeping
+          # both would mean a second, derived ProductVersion that has to stay true on
+          # every build, for an installer the updater never uses.
           - os: windows-latest
-            bundles: nsis,msi
+            bundles: nsis
           - os: macos-latest
             bundles: app,dmg
     runs-on: ${{ matrix.os }}

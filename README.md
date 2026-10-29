@@ -129,8 +129,13 @@ Output lands in `src-tauri/target/release/bundle/`.
 | Platform | Artifacts | Notes |
 |---|---|---|
 | Linux | `.deb`, `.rpm`, `.AppImage` | no signing |
-| Windows | `.msi`, `.exe` (NSIS) | unsigned; SmartScreen will warn until we buy a cert |
+| Windows | `.exe` (NSIS) | unsigned; SmartScreen will warn until we buy a cert |
 | macOS | `.app`, `.dmg` | CI proof, not distributable, until signing credentials land (below) |
+
+Windows ships the NSIS installer only. An MSI is built by WiX, which caps an MSI's
+major version at 255, and calver's major is the year; producing one would mean a second,
+derived ProductVersion carried alongside the real one, for an installer the updater never
+touches.
 
 A release also carries the updater artifacts (signed update bundles and `.sig`
 files) from which the workflow rewrites `latest.json` for the update channel above.
