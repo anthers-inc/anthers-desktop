@@ -1,7 +1,7 @@
 {
 	"name": "anthers-desktop",
 	"private": true,
-	"version": "0.2.0",
+	"version": "2026.10.0",
 	"license": "Apache-2.0",
 	"anthersWeb": "v2026.10.34",
 	"description": "Anthers \u2014 Tauri desktop shell bundling the whole Anthers web app",
