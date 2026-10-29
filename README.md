@@ -70,6 +70,12 @@ Point it at a running local API with the platform's `make dev` in another termin
 | `bun run check` | `cargo check` the Rust shell — no installers, no downloads |
 | `bun run build` | Installers for **this** platform (no cross-compilation) |
 
+Every command above has a make target, and the make tier carries what the package scripts
+do not: `make verify` runs `ci.yml`'s step list in the order CI runs it, the `build-*`
+targets refuse on the wrong OS rather than failing inside a toolchain, and
+`make build-macos` and `make notarize` are the signing flow further down. `make help`
+lists the rest.
+
 Debug builds point at `http://localhost:8000`; release builds at `https://anthers.org`.
 Override either with `ANTHERS_API_BASE` at build time.
 
