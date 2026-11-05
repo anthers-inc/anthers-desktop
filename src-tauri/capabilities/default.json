@@ -1,11 +1,10 @@
 {
 	"$schema": "../gen/schemas/desktop-schema.json",
 	"identifier": "default",
-	"description": "Base capability for the Anthers Desktop window: core IPC (the sign-in commands), event listening (the shell emits `desktop-auth-code`), and opening the authorize page in the SYSTEM browser. The webview has no filesystem and no shell scope — the only native surface is the session handoff the wrapped web app already drives.",
+	"description": "Base capability for the Anthers Desktop window: core IPC (the sign-in commands) and event listening (the shell emits `desktop-auth-code`). The webview has no filesystem, shell or URL-opening scope: the authorize page is opened by the shell's own Rust code, so nothing in the window can ask the OS to open an address.",
 	"windows": ["main"],
 	"permissions": [
 		"core:default",
-		"core:event:default",
-		"opener:default"
+		"core:event:default"
 	]
 }

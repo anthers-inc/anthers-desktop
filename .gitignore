@@ -2,6 +2,12 @@
 /web-dist/
 /.web-dist.tar.gz
 
+# Task worktrees and their scratch live inside the checkout, as they do in every
+# Anthers repository: the branch, the directory and the task share one name, and
+# `.tmp/` holds the screenshots and generated artifacts a task has to show.
+/.worktrees/
+/.tmp/
+
 node_modules/
 
 # Written by scripts/release-notes.sh; the release is their home, not the tree.
