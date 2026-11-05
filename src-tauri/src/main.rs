@@ -360,7 +360,13 @@ fn main() {
 			handle_urls(app, &argv);
 		}))
 		.plugin(tauri_plugin_http::init())
-		.plugin(tauri_plugin_opener::init())
+		// 🚨 The opener plugin is NOT registered, and that is the defense rather than an
+		// omission. The sign-in handoff opens the authorize page from Rust with
+		// `tauri_plugin_opener::open_url`, a plain function that needs no plugin, so the
+		// webview keeps no command that opens an address and no script in the window can
+		// turn the shell into a launcher. `capabilities/default.json` carried
+		// `opener:default` until the CSP task removed the last need for it — registering
+		// the plugin again would hand that surface back.
 		.plugin(tauri_plugin_deep_link::init())
 		// The whole-app updater: release builds check the channel and apply at restart.
 		.plugin(tauri_plugin_updater::Builder::new().build())
@@ -511,5 +517,45 @@ mod tests {
 				"before-commands resolve only the web app, got {cmd}"
 			);
 		}
+	}
+
+	#[test]
+	fn the_window_runs_under_a_policy_and_opens_nothing() {
+		// Two properties that belong beside the other config assertions: a packaged
+		// build carries a content security policy, and the window has no command that
+		// opens an address. The policy's sources are read rather than restated, so a
+		// later edit that relaxes one stays visible in its own diff; what fails here is
+		// a policy that quietly goes back to `null`, or a permission that hands the
+		// opener surface to a script in the window.
+		let conf_text =
+			std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/tauri.conf.json"))
+				.unwrap();
+		let conf: serde_json::Value = serde_json::from_str(&conf_text).unwrap();
+		let csp = &conf["app"]["security"]["csp"];
+		assert!(csp.is_object(), "a packaged build runs under a CSP");
+		assert_eq!(csp["default-src"], "'self'");
+		assert_eq!(csp["object-src"], "'none'");
+		assert_eq!(csp["base-uri"], "'none'");
+		assert!(
+			!csp.to_string().contains("unsafe-eval"),
+			"the release policy never allows eval"
+		);
+
+		let caps_text = std::fs::read_to_string(concat!(
+			env!("CARGO_MANIFEST_DIR"),
+			"/capabilities/default.json"
+		))
+		.unwrap();
+		let caps: serde_json::Value = serde_json::from_str(&caps_text).unwrap();
+		let permissions: Vec<&str> = caps["permissions"]
+			.as_array()
+			.expect("the default capability lists its permissions")
+			.iter()
+			.filter_map(|p| p.as_str())
+			.collect();
+		assert!(
+			!permissions.iter().any(|p| p.starts_with("opener")),
+			"the window opens nothing itself: {permissions:?}"
+		);
 	}
 }
