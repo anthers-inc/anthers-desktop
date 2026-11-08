@@ -558,4 +558,40 @@ mod tests {
 			"the window opens nothing itself: {permissions:?}"
 		);
 	}
+
+	/// Media elements must be allowed to follow delivery's redirect.
+	///
+	/// Every audio and video route answers with a 302 to a short-lived signed object on the
+	/// storage endpoint, and a media element follows that redirect itself. CSP checks the
+	/// redirected address against `media-src`, so a policy naming only the API origin blocks
+	/// the bytes after the API has already admitted the request. The storage origin is read
+	/// out of `connect-src` rather than restated: the two entries are the same deployment
+	/// constant, and a move that updates one without the other is exactly this regression.
+	#[test]
+	fn media_elements_may_follow_delivery_to_the_storage_endpoint() {
+		let conf_text =
+			std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/tauri.conf.json"))
+				.unwrap();
+		let conf: serde_json::Value = serde_json::from_str(&conf_text).unwrap();
+		let csp = &conf["app"]["security"]["csp"];
+
+		let media = csp["media-src"]
+			.as_str()
+			.expect("media-src is a source list");
+		let connect = csp["connect-src"]
+			.as_str()
+			.expect("connect-src is a source list");
+		let storage = connect
+			.split_whitespace()
+			.find(|source| source.ends_with(".r2.cloudflarestorage.com"))
+			.unwrap_or_else(|| panic!("connect-src names the signed-media host: {connect}"));
+		assert!(
+			media.split_whitespace().any(|source| source == storage),
+			"media-src admits the host a delivery redirect lands on ({storage}): {media}"
+		);
+		assert!(
+			media.split_whitespace().any(|source| source == "blob:"),
+			"media-src admits the blob a MediaSource player attaches: {media}"
+		);
+	}
 }

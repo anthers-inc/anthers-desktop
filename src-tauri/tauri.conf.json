@@ -28,7 +28,7 @@
 				"style-src": "'self'",
 				"style-src-attr": "'unsafe-inline'",
 				"img-src": "'self' data: blob: https:",
-				"media-src": "'self' blob: https://anthers.org",
+				"media-src": "'self' blob: https://anthers.org https://42e9a13ee9f7af4092581dc675c9f4da.r2.cloudflarestorage.com",
 				"font-src": "'self'",
 				"connect-src": "'self' https://anthers.org https://42e9a13ee9f7af4092581dc675c9f4da.r2.cloudflarestorage.com ipc: http://ipc.localhost https://api.stripe.com",
 				"frame-src": "https: blob:",
