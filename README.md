@@ -98,16 +98,18 @@ bundled, which is what makes the auth work below necessary.
 nonces its own assets need at build time, so the policy does not list the app's files by
 name. The release policy defaults to the bundle's own origin, allows scripts from the
 bundle plus Stripe's payment script, images from any HTTPS address because a post may
-point at one, media from the API origin, frames from any HTTPS address because a
-creator's embedded build is served from one, and allows no embedded object and no base URI
-at all. A second copy in `devCsp` is the looser shape Tauri applies where it proxies a dev
-server, which the desktop does not.
+point at one, media from the API origin and the storage endpoint a delivery redirect lands
+on, frames from any HTTPS address because a creator's embedded build is served from one,
+and allows no embedded object and no base URI at all. A second copy in `devCsp` is the
+looser shape Tauri applies where it proxies a dev server, which the desktop does not.
 
 Two of its entries are deployment constants rather than app code: the API origin and the
-R2 endpoint that presigned uploads go straight to. A build pointed at another origin with
-`ANTHERS_API_BASE` needs that origin added to `connect-src`, and moving the storage account
-is the same kind of change. Either one shows up as a blocked request in the window rather
-than a failed build.
+R2 endpoint that presigned uploads go straight to and that media delivery redirects to.
+A build pointed at another origin with `ANTHERS_API_BASE` needs that origin added to
+`connect-src`, and moving the storage account is the same kind of change — it has to move
+in `media-src` beside `connect-src`, or the bytes are blocked after the API has admitted
+the request. Either one shows up as a blocked request in the window rather than a failed
+build.
 
 ## Auth, in one paragraph
 
