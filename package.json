@@ -1,9 +1,9 @@
 {
 	"name": "anthers-desktop",
 	"private": true,
-	"version": "2026.11.0",
+	"version": "2026.11.1",
 	"license": "Apache-2.0",
-	"anthersWeb": "v2026.11.7",
+	"anthersWeb": "v2026.11.10",
 	"description": "Anthers \u2014 Tauri desktop shell bundling the whole Anthers web app",
 	"type": "module",
 	"comment": "The web app is not a dependency here \u2014 it is a BUILD ARTIFACT resolved into ./web-dist by scripts/resolve-web.ts. See that file for the three sources and why a release asset rather than a GitHub Package.",
